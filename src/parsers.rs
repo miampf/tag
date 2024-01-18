@@ -13,7 +13,7 @@ pub mod query {
     use pest_derive::Parser;
 
     /// Expr represents an AST for a search query.
-    #[derive(Debug)]
+    #[derive(Debug, PartialEq)]
     pub enum Expr {
         Bool(bool),
         Operation {
@@ -24,7 +24,7 @@ pub mod query {
     }
 
     /// Op is an Operation that can be used in a query.
-    #[derive(Debug)]
+    #[derive(Debug, PartialEq)]
     pub enum Op {
         And,
         Or,
@@ -75,6 +75,11 @@ pub mod query {
 
 #[cfg(test)]
 mod tests {
+    use crate::parsers::query::construct_query_ast;
+    use crate::parsers::query::Expr;
+    use crate::parsers::query::Op;
+    use crate::parsers::query::QueryParser;
+
     use super::query;
     use super::tagline;
 
@@ -204,6 +209,66 @@ mod tests {
             assert!(!test_case.expected_error);
 
             assert_eq!(test_case.input, res.unwrap().as_str())
+        })
+    }
+
+    #[test]
+    fn test_construct_query_ast() {
+        struct TestCase<'a> {
+            name: &'a str,
+            input_query: &'a str,
+            input_tags: Vec<String>,
+            expected_ast: Expr,
+        }
+
+        let test_cases = [
+            TestCase {
+                name: "success_flat",
+                input_query: "#a & #b",
+                input_tags: vec![],
+                expected_ast: Expr::Operation {
+                    lhs: Box::new(Expr::Bool(false)),
+                    op: Op::And,
+                    rhs: Box::new(Expr::Bool(false)),
+                },
+            },
+            TestCase {
+                name: "success_nested",
+                input_query: "#a & #b | (#c & #d)",
+                input_tags: vec!["#c".to_string(), "#d".to_string()],
+                expected_ast: Expr::Operation {
+                    lhs: Box::new(Expr::Operation {
+                        lhs: Box::new(Expr::Bool(false)),
+                        op: Op::And,
+                        rhs: Box::new(Expr::Bool(false)),
+                    }),
+                    op: Op::Or,
+                    rhs: Box::new(Expr::Operation {
+                        lhs: Box::new(Expr::Bool(true)),
+                        op: Op::And,
+                        rhs: Box::new(Expr::Bool(true)),
+                    }),
+                },
+            },
+        ];
+
+        test_cases.iter().for_each(|test_case| {
+            println!("test_construct_query_ast: \n\t{}", test_case.name);
+
+            let ast = construct_query_ast(
+                QueryParser::parse(query::Rule::tagsearch, test_case.input_query)
+                    .unwrap()
+                    .next()
+                    .unwrap()
+                    .into_inner(),
+                test_case
+                    .input_tags
+                    .iter()
+                    .map(|tag| tag.as_str())
+                    .collect(),
+            );
+
+            assert_eq!(test_case.expected_ast, ast);
         })
     }
 }
