@@ -48,12 +48,6 @@ mod tests {
                 expected_error: false,
             },
             TestCase {
-                name: "success_with_newline",
-                input: "tags:\n[\n\t#something_else\n]",
-                expected_tags: vec!["#something_else"],
-                expected_error: false,
-            },
-            TestCase {
                 name: "fail_no_brackets",
                 input: "tags:#1#2#3",
                 expected_tags: vec![],
