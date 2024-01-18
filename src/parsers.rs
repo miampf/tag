@@ -13,7 +13,7 @@ pub mod query {
     use pest_derive::Parser;
 
     /// Expr represents an AST for a search query.
-    #[derive(Debug, PartialEq)]
+    #[derive(Debug, PartialEq, Clone)]
     pub enum Expr {
         Bool(bool),
         Operation {
@@ -24,7 +24,7 @@ pub mod query {
     }
 
     /// Op is an Operation that can be used in a query.
-    #[derive(Debug, PartialEq)]
+    #[derive(Debug, PartialEq, Clone)]
     pub enum Op {
         And,
         Or,
@@ -92,6 +92,7 @@ pub mod query {
 #[cfg(test)]
 mod tests {
     use crate::parsers::query::construct_query_ast;
+    use crate::parsers::query::evaluate_ast;
     use crate::parsers::query::Expr;
     use crate::parsers::query::Op;
     use crate::parsers::query::QueryParser;
@@ -285,6 +286,53 @@ mod tests {
             );
 
             assert_eq!(test_case.expected_ast, ast);
+        })
+    }
+
+    #[test]
+    fn test_evaluate_ast() {
+        struct TestCase<'a> {
+            name: &'a str,
+            input_ast: Expr,
+            expected_result: bool,
+        }
+
+        let test_cases = [
+            TestCase {
+                name: "success_flat",
+                input_ast: Expr::Operation {
+                    lhs: Box::new(Expr::Bool(true)),
+                    op: Op::And,
+                    rhs: Box::new(Expr::Bool(true)),
+                },
+                expected_result: true,
+            },
+            TestCase {
+                name: "success_nested",
+                input_ast: Expr::Operation {
+                    lhs: Box::new(Expr::Operation {
+                        lhs: Box::new(Expr::Bool(false)),
+                        op: Op::And,
+                        rhs: Box::new(Expr::Bool(false)),
+                    }),
+                    op: Op::Or,
+                    rhs: Box::new(Expr::Operation {
+                        lhs: Box::new(Expr::Bool(true)),
+                        op: Op::And,
+                        rhs: Box::new(Expr::Bool(false)),
+                    }),
+                },
+                expected_result: false,
+            },
+        ];
+
+        test_cases.iter().for_each(|test_case| {
+            println!("test_evaluate_ast: \n\t{}", test_case.name);
+
+            assert_eq!(
+                test_case.expected_result,
+                evaluate_ast(test_case.input_ast.clone())
+            )
         })
     }
 }
