@@ -1,0 +1,12 @@
+tag = {"#" ~ (LETTER|NUMBER|CONNECTOR_PUNCTUATION|DASH_PUNCTUATION)+}
+
+operation = _{and | or}
+  and = {"&"}
+  or = {"|"}
+
+expr = {term ~ (operation ~ term)*}
+  term = _{tag | "(" ~ expr ~ ")"}
+
+tagsearch = _{SOI ~ expr ~ EOI}
+
+WHITESPACE = _{" " | "\t" | NEWLINE}
