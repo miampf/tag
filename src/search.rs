@@ -12,8 +12,8 @@ use crate::parsers::tagline::{self, TaglineParser};
 /// TaggedFile is a file that contains tags.
 #[derive(Clone)]
 pub struct TaggedFile {
-    path: PathBuf,
-    tags: Vec<String>,
+    pub path: PathBuf,
+    pub tags: Vec<String>,
 }
 
 /// get_tags_from_file() returns a list of tags found in a file.
@@ -24,14 +24,13 @@ fn get_tags_from_file(file: &Path) -> Result<Vec<String>, Box<dyn std::error::Er
     let mut tagline = String::new();
     let _ = buffer.read_line(&mut tagline)?;
 
-    let mut parsed = TaglineParser::parse(tagline::Rule::tagline, &tagline)?;
+    let parsed = TaglineParser::parse(tagline::Rule::tagline, tagline.trim())?;
 
     let mut tags = Vec::new();
 
-    for tag in parsed.next().unwrap().into_inner() {
-        match tag.as_rule() {
-            tagline::Rule::tag => tags.push(tag.as_str().to_string()),
-            _ => unreachable!(),
+    for tag in parsed {
+        if tag.as_rule() == tagline::Rule::tag {
+            tags.push(tag.as_str().to_string())
         }
     }
 
@@ -45,6 +44,11 @@ pub fn get_tags_from_files(directory: &str) -> Result<Vec<TaggedFile>, Box<dyn s
 
     for entry in WalkDir::new(directory).follow_links(true) {
         let entry = entry?;
+
+        if entry.file_type().is_dir() {
+            continue;
+        }
+
         let tags = get_tags_from_file(entry.path())?;
         tagged_files.push(TaggedFile {
             path: entry.path().to_owned(),
