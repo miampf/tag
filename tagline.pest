@@ -1,6 +1,6 @@
 tag = {"#" ~ (LETTER|NUMBER|CONNECTOR_PUNCTUATION|DASH_PUNCTUATION)+}
 taglist = _{"[" ~ tag* ~ "]"}
-tagline = _{"tags:" ~ taglist}
+tagline = _{SOI ~ "tags:" ~ taglist ~ EOI}
 
 WHITESPACE = _{" " | "\t" | NEWLINE}
 
