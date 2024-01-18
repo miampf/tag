@@ -74,7 +74,7 @@ mod tests {
         ];
 
         test_cases.iter().for_each(|test_case| {
-            println!("{}", test_case.name);
+            println!("test_tagline_parser: \n\t{}", test_case.name);
 
             let res = tagline::TaglineParser::parse(tagline::Rule::tagline, test_case.input);
             if res.is_err() {
@@ -147,7 +147,7 @@ mod tests {
         ];
 
         test_cases.iter().for_each(|test_case| {
-            println!("{}", test_case.name);
+            println!("test_tagline_parser: \n\t{}", test_case.name);
 
             let res = query::QueryParser::parse(query::Rule::tagsearch, test_case.input);
             if res.is_err() {
