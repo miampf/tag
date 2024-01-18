@@ -1,6 +1,6 @@
 use pest::Parser;
 use tag::{
-    parsers::query::{construct_query_ast, QueryParser, Rule},
+    parsers::query::{construct_query_ast, evaluate_ast, QueryParser, Rule},
     search::get_tags_from_files,
 };
 
@@ -12,15 +12,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     let ast = construct_query_ast(
-        QueryParser::parse(Rule::tagsearch, "#a & #b | (#c & #d)")
+        QueryParser::parse(Rule::tagsearch, "(#a & #b | (#c & #d)) & #e")
             .unwrap()
             .next()
             .unwrap()
             .into_inner(),
-        vec!["#a", "#c", "#d"],
+        vec!["#a", "#c", "#d", "#e"],
     );
 
     println!("{:#?}", ast);
+    println!("{}", evaluate_ast(ast));
 
     Ok(())
 }

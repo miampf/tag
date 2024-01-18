@@ -71,6 +71,22 @@ pub mod query {
             })
             .parse(pairs)
     }
+
+    /// evaluate_ast() evaluates an AST created by construct_query_ast()
+    /// and returns the result.
+    pub fn evaluate_ast(ast: Expr) -> bool {
+        match ast {
+            Expr::Bool(value) => value,
+            Expr::Operation { lhs, op, rhs } => {
+                let left = evaluate_ast(*lhs);
+                let right = evaluate_ast(*rhs);
+                match op {
+                    Op::Or => left | right,
+                    Op::And => left & right,
+                }
+            }
+        }
+    }
 }
 
 #[cfg(test)]
