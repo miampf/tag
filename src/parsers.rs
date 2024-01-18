@@ -16,6 +16,7 @@ mod tests {
         struct TestCase<'a> {
             name: &'a str,
             input: &'a str,
+            expected_tags: Vec<&'a str>,
             expected_error: bool,
         }
 
@@ -23,31 +24,37 @@ mod tests {
             TestCase {
                 name: "success_with_space",
                 input: "tags: [#1 #2 #3]",
+                expected_tags: vec!["#1", "#2", "#3"],
                 expected_error: false,
             },
             TestCase {
                 name: "success_without_space",
-                input: "tags:[#1#2#3]",
+                input: "tags:[#1#asdf#something-idk]",
+                expected_tags: vec!["#1", "#asdf", "#something-idk"],
                 expected_error: false,
             },
             TestCase {
                 name: "success_with_newline",
-                input: "tags:\n[\n\t#1\n\t#2\n\t#3\n]",
+                input: "tags:\n[\n\t#something_else\n]",
+                expected_tags: vec!["#something_else"],
                 expected_error: false,
             },
             TestCase {
                 name: "fail_no_brackets",
                 input: "tags:#1#2#3",
+                expected_tags: vec![],
                 expected_error: true,
             },
             TestCase {
                 name: "fail_no_tags",
                 input: "[#1#2#3]",
+                expected_tags: vec![],
                 expected_error: true,
             },
             TestCase {
                 name: "fail_wrong_tag",
                 input: "tags:[##]",
+                expected_tags: vec![],
                 expected_error: true,
             },
         ];
@@ -58,8 +65,18 @@ mod tests {
             let res = TaglineParser::parse(Rule::tagline, test_case.input);
             if res.is_err() {
                 assert!(test_case.expected_error);
-            } else {
-                assert!(!test_case.expected_error);
+                return;
+            }
+
+            assert!(!test_case.expected_error);
+
+            for (i, tag) in res.unwrap().next().unwrap().into_inner().enumerate() {
+                match tag.as_rule() {
+                    Rule::tag => {
+                        assert!(tag.as_str() == test_case.expected_tags[i])
+                    }
+                    _ => unreachable!(),
+                }
             }
         })
     }
