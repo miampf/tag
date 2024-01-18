@@ -9,17 +9,94 @@ pub mod tagline {
 }
 
 pub mod query {
+    use pest::{iterators::Pairs, pratt_parser::PrattParser};
     use pest_derive::Parser;
+
+    /// Expr represents an AST for a search query.
+    #[derive(Debug, PartialEq, Clone)]
+    pub enum Expr {
+        Bool(bool),
+        Operation {
+            lhs: Box<Expr>,
+            op: Op,
+            rhs: Box<Expr>,
+        },
+    }
+
+    /// Op is an Operation that can be used in a query.
+    #[derive(Debug, PartialEq, Clone)]
+    pub enum Op {
+        And,
+        Or,
+    }
+
+    lazy_static::lazy_static! {
+        static ref PRATT_PARSER: PrattParser<Rule> = {
+            use pest::pratt_parser::{Assoc::*, Op};
+            use Rule::*;
+
+            PrattParser::new()
+                // & and | are evaluated with the same precedence
+                .op(Op::infix(and, Left) | Op::infix(or, Left))
+        };
+    }
 
     #[derive(Parser)]
     #[grammar = "query.pest"]
     /// QueryParser is responsible for parsing the search query.
     /// The relevant rule is `tagsearch`.
     pub struct QueryParser;
+
+    /// construct_query_ast() creates an AST from a string of symbols
+    /// lexed by the QueryParser and a list of tags.
+    pub fn construct_query_ast(pairs: Pairs<Rule>, tags: Vec<&str>) -> Expr {
+        PRATT_PARSER
+            .map_primary(|primary| match primary.as_rule() {
+                Rule::tag => Expr::Bool(tags.contains(&primary.as_str().trim())),
+                Rule::expr => construct_query_ast(primary.into_inner(), tags.clone()),
+                rule => unreachable!("Expected tag, found {:?}", rule),
+            })
+            .map_infix(|lhs, op, rhs| {
+                let op = match op.as_rule() {
+                    Rule::or => Op::Or,
+                    Rule::and => Op::And,
+                    rule => unreachable!("Expected operation, found {:?}", rule),
+                };
+
+                Expr::Operation {
+                    lhs: Box::new(lhs),
+                    op,
+                    rhs: Box::new(rhs),
+                }
+            })
+            .parse(pairs)
+    }
+
+    /// evaluate_ast() evaluates an AST created by construct_query_ast()
+    /// and returns the result.
+    pub fn evaluate_ast(ast: Expr) -> bool {
+        match ast {
+            Expr::Bool(value) => value,
+            Expr::Operation { lhs, op, rhs } => {
+                let left = evaluate_ast(*lhs);
+                let right = evaluate_ast(*rhs);
+                match op {
+                    Op::Or => left | right,
+                    Op::And => left & right,
+                }
+            }
+        }
+    }
 }
 
 #[cfg(test)]
 mod tests {
+    use crate::parsers::query::construct_query_ast;
+    use crate::parsers::query::evaluate_ast;
+    use crate::parsers::query::Expr;
+    use crate::parsers::query::Op;
+    use crate::parsers::query::QueryParser;
+
     use super::query;
     use super::tagline;
 
@@ -149,6 +226,113 @@ mod tests {
             assert!(!test_case.expected_error);
 
             assert_eq!(test_case.input, res.unwrap().as_str())
+        })
+    }
+
+    #[test]
+    fn test_construct_query_ast() {
+        struct TestCase<'a> {
+            name: &'a str,
+            input_query: &'a str,
+            input_tags: Vec<String>,
+            expected_ast: Expr,
+        }
+
+        let test_cases = [
+            TestCase {
+                name: "success_flat",
+                input_query: "#a & #b",
+                input_tags: vec![],
+                expected_ast: Expr::Operation {
+                    lhs: Box::new(Expr::Bool(false)),
+                    op: Op::And,
+                    rhs: Box::new(Expr::Bool(false)),
+                },
+            },
+            TestCase {
+                name: "success_nested",
+                input_query: "#a & #b | (#c & #d)",
+                input_tags: vec!["#c".to_string(), "#d".to_string()],
+                expected_ast: Expr::Operation {
+                    lhs: Box::new(Expr::Operation {
+                        lhs: Box::new(Expr::Bool(false)),
+                        op: Op::And,
+                        rhs: Box::new(Expr::Bool(false)),
+                    }),
+                    op: Op::Or,
+                    rhs: Box::new(Expr::Operation {
+                        lhs: Box::new(Expr::Bool(true)),
+                        op: Op::And,
+                        rhs: Box::new(Expr::Bool(true)),
+                    }),
+                },
+            },
+        ];
+
+        test_cases.iter().for_each(|test_case| {
+            println!("test_construct_query_ast: \n\t{}", test_case.name);
+
+            let ast = construct_query_ast(
+                QueryParser::parse(query::Rule::tagsearch, test_case.input_query)
+                    .unwrap()
+                    .next()
+                    .unwrap()
+                    .into_inner(),
+                test_case
+                    .input_tags
+                    .iter()
+                    .map(|tag| tag.as_str())
+                    .collect(),
+            );
+
+            assert_eq!(test_case.expected_ast, ast);
+        })
+    }
+
+    #[test]
+    fn test_evaluate_ast() {
+        struct TestCase<'a> {
+            name: &'a str,
+            input_ast: Expr,
+            expected_result: bool,
+        }
+
+        let test_cases = [
+            TestCase {
+                name: "success_flat",
+                input_ast: Expr::Operation {
+                    lhs: Box::new(Expr::Bool(true)),
+                    op: Op::And,
+                    rhs: Box::new(Expr::Bool(true)),
+                },
+                expected_result: true,
+            },
+            TestCase {
+                name: "success_nested",
+                input_ast: Expr::Operation {
+                    lhs: Box::new(Expr::Operation {
+                        lhs: Box::new(Expr::Bool(false)),
+                        op: Op::And,
+                        rhs: Box::new(Expr::Bool(false)),
+                    }),
+                    op: Op::Or,
+                    rhs: Box::new(Expr::Operation {
+                        lhs: Box::new(Expr::Bool(true)),
+                        op: Op::And,
+                        rhs: Box::new(Expr::Bool(false)),
+                    }),
+                },
+                expected_result: false,
+            },
+        ];
+
+        test_cases.iter().for_each(|test_case| {
+            println!("test_evaluate_ast: \n\t{}", test_case.name);
+
+            assert_eq!(
+                test_case.expected_result,
+                evaluate_ast(test_case.input_ast.clone())
+            )
         })
     }
 }
