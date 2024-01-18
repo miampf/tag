@@ -1,17 +1,19 @@
 use std::{
     fs,
     io::{BufRead, BufReader},
-    path::Path,
+    path::{Path, PathBuf},
 };
 
 use pest::Parser;
+use walkdir::WalkDir;
 
 use crate::parsers::tagline::{self, TaglineParser};
 
 /// TaggedFile is a file that contains tags.
-pub struct TaggedFile<'a> {
-    path: &'a Path,
-    tags: Vec<&'a str>,
+#[derive(Clone)]
+pub struct TaggedFile {
+    path: PathBuf,
+    tags: Vec<String>,
 }
 
 /// get_tags_from_file() returns a list of tags found in a file.
@@ -38,8 +40,17 @@ fn get_tags_from_file(file: &Path) -> Result<Vec<String>, Box<dyn std::error::Er
 
 /// get_tags_from_files() recursively retrieves the tags of all files
 /// in a given directory.
-pub fn get_tags_from_files(
-    directory: &Path,
-) -> Result<Vec<TaggedFile>, Box<dyn std::error::Error>> {
-    todo!()
+pub fn get_tags_from_files(directory: &str) -> Result<Vec<TaggedFile>, Box<dyn std::error::Error>> {
+    let mut tagged_files = Vec::new();
+
+    for entry in WalkDir::new(directory).follow_links(true) {
+        let entry = entry?;
+        let tags = get_tags_from_file(entry.path())?;
+        tagged_files.push(TaggedFile {
+            path: entry.path().to_owned(),
+            tags,
+        })
+    }
+
+    Ok(tagged_files.clone())
 }
