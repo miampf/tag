@@ -78,12 +78,9 @@ mod tests {
 
             assert!(!test_case.expected_error);
 
-            for (i, tag) in res.unwrap().next().unwrap().into_inner().enumerate() {
-                match tag.as_rule() {
-                    tagline::Rule::tag => {
-                        assert!(tag.as_str() == test_case.expected_tags[i])
-                    }
-                    _ => unreachable!(),
+            for (i, tag) in res.unwrap().enumerate() {
+                if tag.as_rule() == tagline::Rule::tag {
+                    assert_eq!(tag.as_str().trim(), test_case.expected_tags[i]);
                 }
             }
         })
@@ -141,7 +138,7 @@ mod tests {
         ];
 
         test_cases.iter().for_each(|test_case| {
-            println!("test_tagline_parser: \n\t{}", test_case.name);
+            println!("test_query_parser: \n\t{}", test_case.name);
 
             let res = query::QueryParser::parse(query::Rule::tagsearch, test_case.input);
             if res.is_err() {
@@ -151,7 +148,7 @@ mod tests {
 
             assert!(!test_case.expected_error);
 
-            assert_eq!(test_case.input, res.unwrap().next().unwrap().as_str())
+            assert_eq!(test_case.input, res.unwrap().as_str())
         })
     }
 }
