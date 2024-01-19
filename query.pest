@@ -4,8 +4,10 @@ operation = _{and | or}
   and = {"&"}
   or = {"|"}
 
+unary_not = {"!"}
+
 expr = {term ~ (operation ~ term)*}
-  term = _{tag | "(" ~ expr ~ ")"}
+  term = _{unary_not* ~ tag | "(" ~ expr ~ ")"}
 
 tagsearch = _{SOI ~ expr ~ EOI}
 
