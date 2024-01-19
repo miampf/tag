@@ -10,7 +10,7 @@ use walkdir::WalkDir;
 use crate::parsers::tagline::{self, TaglineParser};
 
 /// TaggedFile is a file that contains tags.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct TaggedFile {
     pub path: PathBuf,
     pub tags: Vec<String>,
@@ -49,11 +49,14 @@ pub fn get_tags_from_files(directory: &str) -> Result<Vec<TaggedFile>, Box<dyn s
             continue;
         }
 
-        let tags = get_tags_from_file(entry.path())?;
-        tagged_files.push(TaggedFile {
-            path: entry.path().to_owned(),
-            tags,
-        })
+        let tags = get_tags_from_file(entry.path());
+
+        if let Ok(tags) = tags {
+            tagged_files.push(TaggedFile {
+                path: entry.path().to_owned(),
+                tags,
+            })
+        }
     }
 
     Ok(tagged_files.clone())
