@@ -34,7 +34,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = cli::Cli::new_and_parse();
 
     let file_index = get_tags_from_files(args.path.as_str())?;
-    let query = QueryParser::parse(Rule::tagsearch, args.query.as_str())?;
+    let query = QueryParser::parse(Rule::tagsearch, args.query.as_str());
+
+    if let Err(e) = query {
+        println!("Error: {}", e);
+        std::process::exit(1);
+    }
+
+    let query = query.unwrap();
 
     for file in file_index.iter() {
         let ast = construct_query_ast(
