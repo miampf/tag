@@ -16,6 +16,7 @@ pub mod query {
     #[derive(Debug, PartialEq, Clone)]
     pub enum Expr {
         Bool(bool),
+        UnaryNot(Box<Expr>),
         Operation {
             lhs: Box<Expr>,
             op: Op,
@@ -38,6 +39,7 @@ pub mod query {
             PrattParser::new()
                 // & and | are evaluated with the same precedence
                 .op(Op::infix(and, Left) | Op::infix(or, Left))
+                .op(Op::prefix(unary_not))
         };
     }
 
@@ -69,6 +71,10 @@ pub mod query {
                     rhs: Box::new(rhs),
                 }
             })
+            .map_prefix(|op, rhs| match op.as_rule() {
+                Rule::unary_not => Expr::UnaryNot(Box::new(rhs)),
+                rule => unreachable!("Expected unary not, found {:?}", rule),
+            })
             .parse(pairs)
     }
 
@@ -77,6 +83,7 @@ pub mod query {
     pub fn evaluate_ast(ast: Expr) -> bool {
         match ast {
             Expr::Bool(value) => value,
+            Expr::UnaryNot(expr) => !evaluate_ast(*expr),
             Expr::Operation { lhs, op, rhs } => {
                 let left = evaluate_ast(*lhs);
                 let right = evaluate_ast(*rhs);
@@ -174,7 +181,7 @@ mod tests {
         let test_cases = [
             TestCase {
                 name: "success_with_space",
-                input: "#a & #b",
+                input: "#a & !#b",
                 expected_error: false,
             },
             TestCase {
@@ -251,7 +258,7 @@ mod tests {
             },
             TestCase {
                 name: "success_nested",
-                input_query: "#a & #b | (#c & #d)",
+                input_query: "#a & #b | (!#c & #d)",
                 input_tags: vec!["#c".to_string(), "#d".to_string()],
                 expected_ast: Expr::Operation {
                     lhs: Box::new(Expr::Operation {
@@ -261,7 +268,7 @@ mod tests {
                     }),
                     op: Op::Or,
                     rhs: Box::new(Expr::Operation {
-                        lhs: Box::new(Expr::Bool(true)),
+                        lhs: Box::new(Expr::UnaryNot(Box::new(Expr::Bool(true)))),
                         op: Op::And,
                         rhs: Box::new(Expr::Bool(true)),
                     }),
@@ -316,11 +323,11 @@ mod tests {
                         rhs: Box::new(Expr::Bool(false)),
                     }),
                     op: Op::Or,
-                    rhs: Box::new(Expr::Operation {
+                    rhs: Box::new(Expr::UnaryNot(Box::new(Expr::Operation {
                         lhs: Box::new(Expr::Bool(true)),
                         op: Op::And,
-                        rhs: Box::new(Expr::Bool(false)),
-                    }),
+                        rhs: Box::new(Expr::Bool(true)),
+                    }))),
                 },
                 expected_result: false,
             },

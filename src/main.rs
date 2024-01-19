@@ -12,12 +12,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     let ast = construct_query_ast(
-        QueryParser::parse(Rule::tagsearch, "(#a & #b | (#c & #d)) & #e")
+        QueryParser::parse(Rule::tagsearch, "!#e")
             .unwrap()
             .next()
             .unwrap()
             .into_inner(),
-        vec!["#a", "#c", "#d", "#e"],
+        vec!["#a", "#c", "#d"],
     );
 
     println!("{:#?}", ast);
