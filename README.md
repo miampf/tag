@@ -10,7 +10,7 @@ Simply head to the [releases](https://github.com/miampf/tag/releases) page and d
 
 ### From source
 
-Simply clone the repository and run `cargo build --release` to build the project.
+Simply clone the repository and run `cargo install --target=<YOURTARGET>` to build and install the project. Replace `<YOURTARGET>` with either `x86_64-pc-windows-gnu` for windows or `x86_64-unknown-linux-gnu` for linux.
 
 ## Usage
 
