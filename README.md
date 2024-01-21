@@ -8,6 +8,10 @@ A simple program to organize plain text files with tags.
 
 Just run `cargo install tag` to install `tag` for your system.
 
+### From the AUR
+
+Run `paru -S tag` to install `tag` with the AUR.
+
 ### As a binary
 
 Simply head to the [releases](https://github.com/miampf/tag/releases) page and download the latest release for your system.
