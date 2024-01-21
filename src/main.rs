@@ -3,7 +3,7 @@ use std::{path::Path, process::Command};
 use colored::Colorize;
 use pest::Parser;
 use tag::{
-    parsers::query::{construct_query_ast, evaluate_ast, QueryParser, Rule},
+    parsers::searchquery::{construct_query_ast, evaluate_ast, QueryParser, Rule},
     search::get_tags_from_files,
 };
 
@@ -124,7 +124,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     for file in file_index {
         let ast = construct_query_ast(
             query.clone().next().unwrap().into_inner(),
-            file.tags.iter().map(std::string::String::as_str).collect(),
+            &file.tags.iter().map(std::string::String::as_str).collect(),
         );
 
         // skip the file if tags don't match query
