@@ -4,13 +4,13 @@ A simple program to organize plain text files with tags.
 
 ## Installation
 
-### As a binary
-
-Simply head to the [releases](https://github.com/miampf/tag/releases) page and download the latest release for your system.
-
 ### With cargo
 
 Just run `cargo install tag` to install `tag` for your system.
+
+### As a binary
+
+Simply head to the [releases](https://github.com/miampf/tag/releases) page and download the latest release for your system.
 
 ## Usage
 
