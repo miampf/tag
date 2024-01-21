@@ -1,10 +1,12 @@
 [package]
 name = "tag"
+authors = ["miampf"]
 version = "0.2.0"
 edition = "2021"
 description = "Search for local text files with a simple tagging system."
 license = "MIT"
 repository = "https://github.com/miampf/tag"
+homepage = "https://github.com/miampf/tag"
 keywords = ["organization", "tagging", "plaintext", "searching"]
 categories = ["command-line-utilities", "filesystem"]
 
