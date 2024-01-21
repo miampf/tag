@@ -42,14 +42,14 @@ fn execute_command_on_file(path: PathBuf, command: String) -> String {
     let output = Command::new("bash").arg("-c").arg(command.clone()).output();
 
     if let Err(e) = &output {
-        println!("Wasn't able to execute command {}: {}", command, e);
+        eprintln!("Wasn't able to execute command {}: {}", command, e);
     }
 
     let output = output.unwrap();
     let output_string = std::str::from_utf8(output.stdout.as_slice());
 
     if let Err(e) = &output_string {
-        println!("Failed to get output from command {}: {}", command, e);
+        eprintln!("Failed to get output from command {}: {}", command, e);
     }
 
     output_string.unwrap().to_string()
@@ -62,7 +62,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let query = QueryParser::parse(Rule::tagsearch, args.query.as_str());
 
     if let Err(e) = &query {
-        println!("Error: {}", e);
+        eprintln!("Error: {}", e);
         std::process::exit(1);
     }
 
