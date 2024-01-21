@@ -30,7 +30,7 @@ mod cli {
         pub command: Option<String>,
 
         #[arg(short, long)]
-        /// A command that must run successfully on a file for it to be accepted.
+        /// A command that must run successfully for a file to be accepted.
         pub filter_command: Option<String>,
 
         #[arg(short, long)]
