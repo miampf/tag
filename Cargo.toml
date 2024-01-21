@@ -3,6 +3,7 @@ name = "tag"
 version = "0.1.0"
 edition = "2021"
 
+
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
@@ -13,3 +14,12 @@ pest = "2.7.6"
 pest_derive = "2.7.6"
 textwrap = "0.16.0"
 walkdir = "2.4.0"
+
+[lints.clippy]
+pedantic = "warn"
+nursery = "warn"
+suspicious = "warn"
+cargo = "warn"
+complexity = "deny"
+perf = "deny"
+style = "deny"
