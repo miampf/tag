@@ -26,7 +26,7 @@ mod cli {
 
         #[arg(short, long)]
         /// A command that will be executed on matched files.
-        pub command: String,
+        pub command: Option<String>,
     }
 
     impl Cli {
@@ -81,13 +81,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("{}", file.path.display());
 
         let mut output = String::new();
-        if !args.command.is_empty() {
-            output = execute_command_on_file(file.path.clone(), args.command.clone());
+        if args.command.is_some() {
+            output = execute_command_on_file(file.path.clone(), args.command.clone().unwrap());
         }
 
         if !args.silent {
             println!("\ttags:{:?} ", file.tags);
-            println!("\tOutput of command:\n{}", output);
+            println!(
+                "\tOutput of command:\n{}",
+                textwrap::indent(output.as_str(), "\t\t")
+            );
         }
     }
 
