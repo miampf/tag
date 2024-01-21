@@ -8,9 +8,9 @@ A simple program to organize plain text files with tags.
 
 Simply head to the [releases](https://github.com/miampf/tag/releases) page and download the latest release for your system.
 
-### From source
+### With cargo
 
-Simply clone the repository and run `cargo install --target=<YOURTARGET>` to build and install the project. Replace `<YOURTARGET>` with either `x86_64-pc-windows-gnu` for windows or `x86_64-unknown-linux-gnu` for linux.
+Just run `cargo install tag` to install `tag` for your system.
 
 ## Usage
 
