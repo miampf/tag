@@ -27,6 +27,8 @@ Once you've added taglines to your local files you can run `tag`. `tag` will sea
 The `tag` help message:
 
 ```
+Search for local text files with a simple tagging system.
+
 Usage: tag [OPTIONS] <QUERY> <PATH>
 
 Arguments:
@@ -34,10 +36,19 @@ Arguments:
   <PATH>   The path that will be searched
 
 Options:
-  -s, --silent   Only print the paths of matched files
-  -h, --help     Print help
-  -V, --version  Print version
-  ```
+  -s, --silent
+          Only print the paths of matched files
+  -c, --command <COMMAND>
+          A command that will be executed on matched files
+  -f, --filter-command <FILTER_COMMAND>
+          A command that must run successfully for a file to be accepted
+  -n, --no-color
+          Disable coloring
+  -h, --help
+          Print help
+  -V, --version
+          Print version
+```
 
 A query contains operators and tags. Usable operators are `&` for the logical AND, `|` for the logical OR and `!` as a unary NOT. Furthermore, you can nest queries by using parantheses. A query could look like this:
 
@@ -46,3 +57,13 @@ A query contains operators and tags. Usable operators are `&` for the logical AN
 ```
 
 This query would match all files that contain `#tag1` AND `#tag2` OR files that don't contain `#tag3` while also containing `#tag4`. You can find the query grammar under [query.pest](./query.pest).
+
+### Commands
+
+`tag` supports two flags that execute a system command. The `-c`/`--command` flag lets you add a command that should be executed on each matched file. The `-f`/`--filter-command` flag checks if an executed system command exits successfully. If not, the found file will not match, even tho it contains tags matching the query. You can use the string `#FILE#` in your command. This string will be replaced with the filepath of the file that matched the query. For example, the command
+
+```
+tag "#asdf" . -f "grep 'something' #FILE#" -c "echo 'somethingelse' >> #FILE#"
+```
+
+Will only match the files tagged with `#asdf` that also include the string "something". The string "somethingelse" will then be appended to each found file.
