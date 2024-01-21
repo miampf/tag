@@ -30,6 +30,10 @@ mod cli {
         pub command: Option<String>,
 
         #[arg(short, long)]
+        /// A command that must run successfully on a file for it to be accepted.
+        pub filter_command: Option<String>,
+
+        #[arg(short, long)]
         /// Disable coloring.
         pub no_color: bool,
     }
@@ -44,7 +48,11 @@ mod cli {
 fn execute_command_on_file(path: PathBuf, command: String) -> String {
     let command = command.replace("#FILE#", path.to_str().unwrap());
 
-    let output = Command::new("bash").arg("-c").arg(command.clone()).output();
+    let output = if cfg!(target_os = "windows") {
+        Command::new("cmd").arg("/C").arg(command.clone()).output()
+    } else {
+        Command::new("bash").arg("-c").arg(command.clone()).output()
+    };
 
     if let Err(e) = &output {
         eprintln!(
@@ -68,6 +76,27 @@ fn execute_command_on_file(path: PathBuf, command: String) -> String {
     }
 
     output_string.unwrap().to_string()
+}
+
+fn execute_filter_command_on_file(path: PathBuf, command: String) -> bool {
+    let command = command.replace("#FILE#", path.to_str().unwrap());
+
+    let output = if cfg!(target_os = "windows") {
+        Command::new("cmd").arg("/C").arg(command.clone()).output()
+    } else {
+        Command::new("bash").arg("-c").arg(command.clone()).output()
+    };
+
+    if let Err(e) = &output {
+        eprintln!(
+            "{} Wasn't able to execute command {}: {}",
+            "[ERROR]".red().bold(),
+            command.blue().underline(),
+            e.to_string().red()
+        );
+    }
+
+    output.unwrap().status.success()
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -98,7 +127,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             file.tags.iter().map(|tag| tag.as_str()).collect(),
         );
 
+        // skip the file if tags don't match query
         if !evaluate_ast(ast) {
+            continue;
+        }
+
+        // skip the file if filter command is unsuccessful
+        if args.filter_command.is_some()
+            && !execute_filter_command_on_file(
+                file.path.clone(),
+                args.filter_command.clone().unwrap(),
+            )
+        {
             continue;
         }
 
@@ -111,6 +151,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         if !args.silent {
             println!("\t{}", format!("tags: {:?}", file.tags).blue());
+
             if !output.is_empty() {
                 println!(
                     "\tOutput of command:\n{}",
