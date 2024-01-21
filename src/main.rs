@@ -1,9 +1,9 @@
-use std::{path::PathBuf, process::Command};
+use std::{path::Path, process::Command};
 
 use colored::Colorize;
 use pest::Parser;
 use tag::{
-    parsers::query::{construct_query_ast, evaluate_ast, QueryParser, Rule},
+    parsers::searchquery::{construct_query_ast, evaluate_ast, QueryParser, Rule},
     search::get_tags_from_files,
 };
 
@@ -39,13 +39,13 @@ mod cli {
     }
 
     impl Cli {
-        pub fn new_and_parse() -> Cli {
-            Cli::parse()
+        pub fn new_and_parse() -> Self {
+            Self::parse()
         }
     }
 }
 
-fn execute_command_on_file(path: PathBuf, command: String) -> String {
+fn execute_command_on_file(path: &Path, command: &str) -> String {
     let command = command.replace("#FILE#", path.to_str().unwrap());
 
     let output = if cfg!(target_os = "windows") {
@@ -78,7 +78,7 @@ fn execute_command_on_file(path: PathBuf, command: String) -> String {
     output_string.unwrap().to_string()
 }
 
-fn execute_filter_command_on_file(path: PathBuf, command: String) -> bool {
+fn execute_filter_command_on_file(path: &Path, command: &str) -> bool {
     let command = command.replace("#FILE#", path.to_str().unwrap());
 
     let output = if cfg!(target_os = "windows") {
@@ -121,10 +121,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let query = query.unwrap();
 
-    for file in file_index.iter() {
+    for file in file_index {
         let ast = construct_query_ast(
             query.clone().next().unwrap().into_inner(),
-            file.tags.iter().map(|tag| tag.as_str()).collect(),
+            &file.tags.iter().map(std::string::String::as_str).collect(),
         );
 
         // skip the file if tags don't match query
@@ -134,20 +134,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         // skip the file if filter command is unsuccessful
         if args.filter_command.is_some()
-            && !execute_filter_command_on_file(
-                file.path.clone(),
-                args.filter_command.clone().unwrap(),
-            )
+            && !execute_filter_command_on_file(&file.path, &args.filter_command.clone().unwrap())
         {
             continue;
         }
 
         println!("{}", file.path.display().to_string().green());
 
-        let mut output = String::new();
-        if args.command.is_some() {
-            output = execute_command_on_file(file.path.clone(), args.command.clone().unwrap());
-        }
+        let output = if args.command.is_some() {
+            execute_command_on_file(&file.path, &args.command.clone().unwrap())
+        } else {
+            String::new()
+        };
 
         if !args.silent {
             println!("\t{}", format!("tags: {:?}", file.tags).blue());

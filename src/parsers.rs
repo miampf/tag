@@ -1,14 +1,14 @@
-pub mod tagline {
+pub mod onfile {
     use pest_derive::Parser;
 
     #[derive(Parser)]
     #[grammar = "tagline.pest"]
-    /// TaglineParser is responsible for parsing the taglines at the start of each searched file.
+    /// `TaglineParser` is responsible for parsing the taglines at the start of each searched file.
     /// The relevant rule is `tagline`.
     pub struct TaglineParser;
 }
 
-pub mod query {
+pub mod searchquery {
     use pest::{iterators::Pairs, pratt_parser::PrattParser};
     use pest_derive::Parser;
 
@@ -25,7 +25,7 @@ pub mod query {
     }
 
     /// Op is an Operation that can be used in a query.
-    #[derive(Debug, PartialEq, Clone)]
+    #[derive(Debug, PartialEq, Eq, Clone)]
     pub enum Op {
         And,
         Or,
@@ -33,8 +33,8 @@ pub mod query {
 
     lazy_static::lazy_static! {
         static ref PRATT_PARSER: PrattParser<Rule> = {
-            use pest::pratt_parser::{Assoc::*, Op};
-            use Rule::*;
+            use pest::pratt_parser::{Assoc::Left, Op};
+            use Rule::{and, or, unary_not};
 
             PrattParser::new()
                 // & and | are evaluated with the same precedence
@@ -45,17 +45,18 @@ pub mod query {
 
     #[derive(Parser)]
     #[grammar = "query.pest"]
-    /// QueryParser is responsible for parsing the search query.
+    /// `QueryParser` is responsible for parsing the search query.
     /// The relevant rule is `tagsearch`.
     pub struct QueryParser;
 
-    /// construct_query_ast() creates an AST from a string of symbols
-    /// lexed by the QueryParser and a list of tags.
-    pub fn construct_query_ast(pairs: Pairs<Rule>, tags: Vec<&str>) -> Expr {
+    /// `construct_query_ast()` creates an AST from a string of symbols
+    /// lexed by the `QueryParser` and a list of tags.
+    #[must_use]
+    pub fn construct_query_ast(pairs: Pairs<Rule>, tags: &Vec<&str>) -> Expr {
         PRATT_PARSER
             .map_primary(|primary| match primary.as_rule() {
                 Rule::tag => Expr::Bool(tags.contains(&primary.as_str().trim())),
-                Rule::expr => construct_query_ast(primary.into_inner(), tags.clone()),
+                Rule::expr => construct_query_ast(primary.into_inner(), tags),
                 rule => unreachable!("Expected tag, found {:?}", rule),
             })
             .map_infix(|lhs, op, rhs| {
@@ -78,8 +79,9 @@ pub mod query {
             .parse(pairs)
     }
 
-    /// evaluate_ast() evaluates an AST created by construct_query_ast()
+    /// `evaluate_ast()` evaluates an AST created by `construct_query_ast()`
     /// and returns the result.
+    #[must_use]
     pub fn evaluate_ast(ast: Expr) -> bool {
         match ast {
             Expr::Bool(value) => value,
@@ -98,14 +100,14 @@ pub mod query {
 
 #[cfg(test)]
 mod tests {
-    use crate::parsers::query::construct_query_ast;
-    use crate::parsers::query::evaluate_ast;
-    use crate::parsers::query::Expr;
-    use crate::parsers::query::Op;
-    use crate::parsers::query::QueryParser;
+    use crate::parsers::searchquery::construct_query_ast;
+    use crate::parsers::searchquery::evaluate_ast;
+    use crate::parsers::searchquery::Expr;
+    use crate::parsers::searchquery::Op;
+    use crate::parsers::searchquery::QueryParser;
 
-    use super::query;
-    use super::tagline;
+    use super::onfile;
+    use super::searchquery;
 
     use pest::Parser;
 
@@ -151,10 +153,10 @@ mod tests {
             },
         ];
 
-        test_cases.iter().for_each(|test_case| {
+        for test_case in test_cases {
             println!("test_tagline_parser: \n\t{}", test_case.name);
 
-            let res = tagline::TaglineParser::parse(tagline::Rule::tagline, test_case.input);
+            let res = onfile::TaglineParser::parse(onfile::Rule::tagline, test_case.input);
             if res.is_err() {
                 assert!(test_case.expected_error);
                 return;
@@ -163,11 +165,11 @@ mod tests {
             assert!(!test_case.expected_error);
 
             for (i, tag) in res.unwrap().enumerate() {
-                if tag.as_rule() == tagline::Rule::tag {
+                if tag.as_rule() == onfile::Rule::tag {
                     assert_eq!(tag.as_str().trim(), test_case.expected_tags[i]);
                 }
             }
-        })
+        }
     }
 
     #[test]
@@ -221,10 +223,11 @@ mod tests {
             },
         ];
 
-        test_cases.iter().for_each(|test_case| {
+        for test_case in test_cases {
             println!("test_query_parser: \n\t{}", test_case.name);
 
-            let res = query::QueryParser::parse(query::Rule::tagsearch, test_case.input);
+            let res =
+                searchquery::QueryParser::parse(searchquery::Rule::tagsearch, test_case.input);
             if res.is_err() {
                 assert!(test_case.expected_error);
                 return;
@@ -232,8 +235,8 @@ mod tests {
 
             assert!(!test_case.expected_error);
 
-            assert_eq!(test_case.input, res.unwrap().as_str())
-        })
+            assert_eq!(test_case.input, res.unwrap().as_str());
+        }
     }
 
     #[test]
@@ -276,24 +279,24 @@ mod tests {
             },
         ];
 
-        test_cases.iter().for_each(|test_case| {
+        for test_case in test_cases {
             println!("test_construct_query_ast: \n\t{}", test_case.name);
 
             let ast = construct_query_ast(
-                QueryParser::parse(query::Rule::tagsearch, test_case.input_query)
+                QueryParser::parse(searchquery::Rule::tagsearch, test_case.input_query)
                     .unwrap()
                     .next()
                     .unwrap()
                     .into_inner(),
-                test_case
+                &test_case
                     .input_tags
                     .iter()
-                    .map(|tag| tag.as_str())
+                    .map(std::string::String::as_str)
                     .collect(),
             );
 
             assert_eq!(test_case.expected_ast, ast);
-        })
+        }
     }
 
     #[test]
@@ -333,13 +336,13 @@ mod tests {
             },
         ];
 
-        test_cases.iter().for_each(|test_case| {
+        for test_case in test_cases {
             println!("test_evaluate_ast: \n\t{}", test_case.name);
 
             assert_eq!(
                 test_case.expected_result,
                 evaluate_ast(test_case.input_ast.clone())
-            )
-        })
+            );
+        }
     }
 }

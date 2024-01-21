@@ -7,16 +7,16 @@ use std::{
 use pest::Parser;
 use walkdir::WalkDir;
 
-use crate::parsers::tagline::{self, TaglineParser};
+use crate::parsers::onfile::{self, TaglineParser};
 
-/// TaggedFile is a file that contains tags.
+/// `TaggedFile` is a file that contains tags.
 #[derive(Clone, Debug)]
 pub struct TaggedFile {
     pub path: PathBuf,
     pub tags: Vec<String>,
 }
 
-/// get_tags_from_file() returns a list of tags found in a file.
+/// `get_tags_from_file()` returns a list of tags found in a file.
 /// It will return an error if a file has no parsable tags.
 fn get_tags_from_file(file: &Path) -> Result<Vec<String>, Box<dyn std::error::Error>> {
     let file = fs::File::open(file)?;
@@ -24,21 +24,25 @@ fn get_tags_from_file(file: &Path) -> Result<Vec<String>, Box<dyn std::error::Er
     let mut tagline = String::new();
     let _ = buffer.read_line(&mut tagline)?;
 
-    let parsed = TaglineParser::parse(tagline::Rule::tagline, tagline.trim())?;
+    let parsed = TaglineParser::parse(onfile::Rule::tagline, tagline.trim())?;
 
     let mut tags = Vec::new();
 
     for tag in parsed {
-        if tag.as_rule() == tagline::Rule::tag {
-            tags.push(tag.as_str().to_string())
+        if tag.as_rule() == onfile::Rule::tag {
+            tags.push(tag.as_str().to_string());
         }
     }
 
     Ok(tags)
 }
 
-/// get_tags_from_files() recursively retrieves the tags of all files
+/// `get_tags_from_files()` recursively retrieves the tags of all files
 /// in a given directory.
+///
+/// # Errors
+///
+/// This function errors if it fails to walk the given directory.
 pub fn get_tags_from_files(directory: &str) -> Result<Vec<TaggedFile>, Box<dyn std::error::Error>> {
     let mut tagged_files = Vec::new();
 
@@ -55,7 +59,7 @@ pub fn get_tags_from_files(directory: &str) -> Result<Vec<TaggedFile>, Box<dyn s
             tagged_files.push(TaggedFile {
                 path: entry.path().to_owned(),
                 tags,
-            })
+            });
         }
     }
 

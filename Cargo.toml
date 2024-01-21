@@ -2,6 +2,11 @@
 name = "tag"
 version = "0.1.0"
 edition = "2021"
+description = "Search for local text files with a simple tagging system."
+license = "MIT"
+repository = "https://github.com/miampf/tag"
+keywords = ["organization", "tagging", "plaintext", "searching"]
+categories = ["command-line-utilities", "filesystem"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -13,3 +18,11 @@ pest = "2.7.6"
 pest_derive = "2.7.6"
 textwrap = "0.16.0"
 walkdir = "2.4.0"
+
+[lints.clippy]
+pedantic = "warn"
+nursery = "warn"
+suspicious = "warn"
+complexity = "deny"
+perf = "deny"
+style = "deny"
