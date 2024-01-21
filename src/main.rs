@@ -1,5 +1,6 @@
 use std::{path::PathBuf, process::Command};
 
+use colored::Colorize;
 use pest::Parser;
 use tag::{
     parsers::query::{construct_query_ast, evaluate_ast, QueryParser, Rule},
@@ -26,7 +27,11 @@ mod cli {
 
         #[arg(short, long)]
         /// A command that will be executed on matched files.
-        pub command: String,
+        pub command: Option<String>,
+
+        #[arg(short, long)]
+        /// Disable coloring.
+        pub no_color: bool,
     }
 
     impl Cli {
@@ -42,14 +47,24 @@ fn execute_command_on_file(path: PathBuf, command: String) -> String {
     let output = Command::new("bash").arg("-c").arg(command.clone()).output();
 
     if let Err(e) = &output {
-        eprintln!("Wasn't able to execute command {}: {}", command, e);
+        eprintln!(
+            "{} Wasn't able to execute command {}: {}",
+            "[ERROR]".red().bold(),
+            command.blue().underline(),
+            e.to_string().red()
+        );
     }
 
     let output = output.unwrap();
     let output_string = std::str::from_utf8(output.stdout.as_slice());
 
     if let Err(e) = &output_string {
-        eprintln!("Failed to get output from command {}: {}", command, e);
+        eprintln!(
+            "{} Failed to get output from command {}: {}",
+            "[ERROR]".red().bold(),
+            command.blue().underline(),
+            e.to_string().red()
+        );
     }
 
     output_string.unwrap().to_string()
@@ -58,11 +73,20 @@ fn execute_command_on_file(path: PathBuf, command: String) -> String {
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = cli::Cli::new_and_parse();
 
+    if args.no_color {
+        colored::control::set_override(false);
+    }
+
     let file_index = get_tags_from_files(args.path.as_str())?;
     let query = QueryParser::parse(Rule::tagsearch, args.query.as_str());
 
     if let Err(e) = &query {
-        eprintln!("Error: {}", e);
+        eprintln!(
+            "{} {}\n{}",
+            "[ERROR]".red().bold(),
+            "Invalid query".red(),
+            e.to_string().red()
+        );
         std::process::exit(1);
     }
 
@@ -78,16 +102,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             continue;
         }
 
-        println!("{}", file.path.display());
+        println!("{}", file.path.display().to_string().green());
 
         let mut output = String::new();
-        if !args.command.is_empty() {
-            output = execute_command_on_file(file.path.clone(), args.command.clone());
+        if args.command.is_some() {
+            output = execute_command_on_file(file.path.clone(), args.command.clone().unwrap());
         }
 
         if !args.silent {
-            println!("\ttags:{:?} ", file.tags);
-            println!("\tOutput of command:\n{}", output);
+            println!("\t{}", format!("tags: {:?}", file.tags).blue());
+            if !output.is_empty() {
+                println!(
+                    "\tOutput of command:\n{}",
+                    textwrap::indent(output.as_str(), "\t\t")
+                );
+            }
         }
     }
 
