@@ -1,3 +1,4 @@
+use std::io::IsTerminal;
 use std::{path::Path, process::Command};
 
 use colored::Colorize;
@@ -100,7 +101,13 @@ fn execute_filter_command_on_file(path: &Path, command: &str) -> bool {
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let args = cli::Cli::new_and_parse();
+    let mut args = cli::Cli::new_and_parse();
+
+    // detect if output is in a terminal or not
+    if !std::io::stdout().is_terminal() {
+        args.silent = true;
+        args.no_color = true;
+    }
 
     if args.no_color {
         colored::control::set_override(false);
