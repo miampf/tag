@@ -1,4 +1,4 @@
-use std::io::IsTerminal;
+use std::io::{BufRead, IsTerminal};
 use std::{path::Path, process::Command};
 
 use colored::Colorize;
@@ -14,13 +14,13 @@ mod cli {
     #[derive(Parser)]
     #[command(author, version, about, long_about = None)]
     pub struct Cli {
-        #[clap(value_name = "QUERY")]
-        /// Search query for the tags.
-        pub query: String,
-
         #[clap(value_name = "PATH")]
         /// The path that will be searched.
         pub path: String,
+
+        #[clap(value_name = "QUERY", group = "q-input")]
+        /// Search query for the tags.
+        pub query: Option<String>,
 
         #[arg(short, long)]
         /// Only print the paths of matched files.
@@ -37,6 +37,10 @@ mod cli {
         #[arg(short, long)]
         /// Disable coloring.
         pub no_color: bool,
+
+        #[arg(short, long, group = "q-input")]
+        /// Receive a query from the standard input.
+        pub query_stdin: bool,
     }
 
     impl Cli {
@@ -113,8 +117,26 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         colored::control::set_override(false);
     }
 
+    if !args.query_stdin && args.query.is_none() {
+        eprintln!(
+            "{} {}",
+            "[ERROR]".red().bold(),
+            "Please provide a query, either through stdin or by manually adding it.".red()
+        );
+        std::process::exit(1);
+    }
+
+    // fetch the query
+    let query = if args.query.is_some() {
+        args.query.unwrap()
+    } else {
+        let mut query = String::new();
+        std::io::stdin().lock().read_line(&mut query)?;
+        query
+    };
+
     let file_index = get_tags_from_files(args.path.as_str())?;
-    let query = QueryParser::parse(Rule::tagsearch, args.query.as_str());
+    let query = QueryParser::parse(Rule::tagsearch, query.as_str());
 
     if let Err(e) = &query {
         eprintln!(

@@ -31,13 +31,11 @@ Once you've added taglines to your local files you can run `tag`. `tag` will sea
 The `tag` help message:
 
 ```
-Search for local text files with a simple tagging system.
-
-Usage: tag [OPTIONS] <QUERY> <PATH>
+Usage: tag [OPTIONS] <PATH> [QUERY]
 
 Arguments:
-  <QUERY>  Search query for the tags
   <PATH>   The path that will be searched
+  [QUERY]  Search query for the tags
 
 Options:
   -s, --silent
@@ -48,6 +46,8 @@ Options:
           A command that must run successfully for a file to be accepted
   -n, --no-color
           Disable coloring
+  -q, --query-stdin
+          Receive a query from the standard input
   -h, --help
           Print help
   -V, --version
