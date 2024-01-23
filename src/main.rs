@@ -1,8 +1,14 @@
-use std::io::{BufRead, IsTerminal};
+use std::io::{self, stdout, BufRead, IsTerminal};
 use std::{path::Path, process::Command};
 
 use colored::Colorize;
+use crossterm::terminal::{
+    self, disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen,
+};
+use crossterm::ExecutableCommand;
 use pest::Parser;
+use ratatui::backend::CrosstermBackend;
+use ratatui::{Frame, Terminal};
 use tag::search::TaggedFile;
 use tag::{
     parsers::searchquery::{construct_query_ast, evaluate_ast, QueryParser, Rule},
@@ -120,11 +126,31 @@ fn non_interactive_output(file: &TaggedFile, command_output: &str) {
     }
 }
 
+fn interactive_output(file: &TaggedFile, command_output: &str) -> io::Result<()> {
+    let mut terminal = Terminal::new(CrosstermBackend::new(stdout()))?;
+
+    let mut show_next = false;
+    while !show_next {
+        terminal.draw(|frame| interactive_output_ui(file, command_output, frame))?;
+        show_next = handle_events()?;
+    }
+
+    Ok(())
+}
+
+fn interactive_output_ui(file: &TaggedFile, command_output: &str, frame: &mut Frame) {
+    todo!()
+}
+
+fn handle_events() -> io::Result<bool> {
+    todo!()
+}
+
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut args = cli::Cli::new_and_parse();
 
     // detect if output is in a terminal or not
-    if !std::io::stdout().is_terminal() {
+    if !stdout().is_terminal() {
         args.silent = true;
         args.no_color = true;
     }
@@ -166,6 +192,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let query = query.unwrap();
 
+    if args.interactive {
+        enable_raw_mode()?;
+        stdout().execute(EnterAlternateScreen)?;
+    }
+
     for file in file_index {
         let ast = construct_query_ast(
             query.clone().next().unwrap().into_inner(),
@@ -184,7 +215,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             continue;
         }
 
-        println!("{}", file.path.display().to_string().green());
+        if !args.interactive {
+            println!("{}", file.path.display().to_string().green());
+        }
 
         let output = if args.command.is_some() {
             execute_command_on_file(&file.path, &args.command.clone().unwrap())
@@ -202,6 +235,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         } else {
             non_interactive_output(&file, output.as_str());
         }
+    }
+
+    if args.interactive {
+        disable_raw_mode()?;
+        stdout().execute(LeaveAlternateScreen)?;
     }
 
     Ok(())
