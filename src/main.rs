@@ -132,8 +132,8 @@ mod interactive_output {
     use ratatui::backend::CrosstermBackend;
     use ratatui::layout::{Alignment, Constraint, Direction, Layout, Rect};
     use ratatui::style::{Style, Stylize};
-    use ratatui::widgets::{Block, Borders, Paragraph, Tabs, Widget, Wrap};
-    use ratatui::{layout, symbols, Frame, Terminal};
+    use ratatui::widgets::{Block, Borders, Paragraph, Tabs, Wrap};
+    use ratatui::{symbols, Frame, Terminal};
     use std::io::{self, stdout};
     use std::rc::Rc;
 
@@ -142,23 +142,28 @@ mod interactive_output {
     /// `InteractiveInputs` contains possible inputs for interactive mode.
     #[derive(Default)]
     struct InteractiveInputs {
-        pub next_file: bool,
         pub tab_index: usize,
+        pub file_index: usize,
+        pub quit: bool,
     }
 
-    pub fn interactive_output(file: &TaggedFile, command_output: &str) -> io::Result<()> {
+    pub fn interactive_output(files: &[TaggedFile]) -> io::Result<()> {
         let mut terminal = Terminal::new(CrosstermBackend::new(stdout()))?;
 
         let mut interactive_inputs = InteractiveInputs::default();
-        while !interactive_inputs.next_file {
+        while !interactive_inputs.quit {
+            let file = &files[interactive_inputs.file_index];
+            let command_output = "";
+
             terminal.draw(|frame| {
                 interactive_output_ui(file, command_output, &interactive_inputs, frame);
             })?;
             interactive_inputs = handle_events(&interactive_inputs)?;
 
-            // prevent an overflow of the tab index
+            // prevent an overflow of the index
             // and also handle wrapping
             interactive_inputs.tab_index %= 3;
+            interactive_inputs.file_index %= files.len();
         }
 
         Ok(())
@@ -206,7 +211,7 @@ mod interactive_output {
                 }
                 out_string
             }
-            _ => unreachable!(),
+            _ => unreachable!(), // tabs are constrained to be between 0 and 2
         };
 
         let paragraph = Paragraph::new(content)
@@ -245,6 +250,7 @@ mod interactive_output {
     fn handle_events(previous_inputs: &InteractiveInputs) -> io::Result<InteractiveInputs> {
         let mut interactive_inputs = InteractiveInputs {
             tab_index: previous_inputs.tab_index,
+            file_index: previous_inputs.file_index,
             ..Default::default()
         };
 
@@ -255,13 +261,15 @@ mod interactive_output {
                 }
 
                 match key.code {
-                    KeyCode::Char('n') => interactive_inputs.next_file = true,
+                    KeyCode::Char('n') => interactive_inputs.file_index += 1,
+                    KeyCode::Char('p') => interactive_inputs.file_index -= 1,
                     KeyCode::Char('l') | KeyCode::Right | KeyCode::Tab => {
                         interactive_inputs.tab_index += 1;
                     }
                     KeyCode::Char('h') | KeyCode::Left | KeyCode::BackTab => {
                         interactive_inputs.tab_index -= 1;
                     }
+                    KeyCode::Char('q') => interactive_inputs.quit = true,
                     _ => return Ok(interactive_inputs),
                 }
             }
@@ -322,6 +330,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         stdout().execute(EnterAlternateScreen)?;
     }
 
+    let mut file_matched_index = Vec::new();
+
     for file in file_index {
         let ast = construct_query_ast(
             query.clone().next().unwrap().into_inner(),
@@ -355,14 +365,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             continue;
         }
 
-        if args.interactive {
-            interactive_output::interactive_output(&file, &output)?;
-        } else {
+        if !args.interactive {
             non_interactive_output(&file, output.as_str());
         }
+
+        file_matched_index.push(file);
     }
 
     if args.interactive {
+        interactive_output::interactive_output(&file_matched_index)?;
+
         disable_raw_mode()?;
         stdout().execute(LeaveAlternateScreen)?;
     }
