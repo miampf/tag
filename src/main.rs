@@ -132,6 +132,7 @@ mod interactive_output {
     use ratatui::backend::CrosstermBackend;
     use ratatui::layout::{Alignment, Constraint, Direction, Layout, Rect};
     use ratatui::style::{Style, Stylize};
+    use ratatui::text::{Line, Span};
     use ratatui::widgets::{Block, Borders, Paragraph, Tabs, Wrap};
     use ratatui::{symbols, Frame, Terminal};
     use std::io::{self, stdout};
@@ -144,6 +145,7 @@ mod interactive_output {
     struct InteractiveInputs {
         pub tab_index: usize,
         pub file_index: usize,
+        pub scroll_index: u16,
         pub quit: bool,
     }
 
@@ -175,28 +177,37 @@ mod interactive_output {
         interactive_inputs: &InteractiveInputs,
         frame: &mut Frame,
     ) {
-        let area = layout(frame.size(), Direction::Vertical, &[1, 0]);
+        let area = layout(frame.size(), Direction::Vertical, &[1, 0, 1]);
+
+        render_tabs(area[0], frame, interactive_inputs);
+
+        render_tab_content(
+            file,
+            command_output,
+            interactive_inputs.tab_index,
+            interactive_inputs.scroll_index,
+            area[1],
+            frame,
+        );
+
+        render_help_menu(area[2], frame);
+    }
+
+    fn render_tabs(area: Rect, frame: &mut Frame, interactive_inputs: &InteractiveInputs) {
         let tabs = Tabs::new(vec!["File Content", "Command Output", "Tags"])
             .style(Style::default().white())
             .highlight_style(Style::default().blue())
             .select(interactive_inputs.tab_index)
             .divider(symbols::DOT);
 
-        frame.render_widget(tabs, area[0]);
-
-        render_tab_content(
-            file,
-            command_output,
-            interactive_inputs.tab_index,
-            area[1],
-            frame,
-        );
+        frame.render_widget(tabs, area);
     }
 
     fn render_tab_content(
         file: &TaggedFile,
         command_output: &str,
         tab_index: usize,
+        scroll_index: u16,
         area: Rect,
         frame: &mut Frame,
     ) {
@@ -214,6 +225,9 @@ mod interactive_output {
             _ => unreachable!(), // tabs are constrained to be between 0 and 2
         };
 
+        #[allow(clippy::cast_possible_truncation)]
+        let scroll_index = scroll_index % content.lines().collect_vec().len() as u16;
+
         let paragraph = Paragraph::new(content)
             .block(
                 Block::new()
@@ -222,7 +236,33 @@ mod interactive_output {
             )
             .style(Style::new())
             .alignment(Alignment::Left)
-            .wrap(Wrap { trim: false });
+            .wrap(Wrap { trim: false })
+            .scroll((scroll_index, 0));
+
+        frame.render_widget(paragraph, area);
+    }
+
+    fn render_help_menu(area: Rect, frame: &mut Frame) {
+        let keys = [
+            ("q", "Quit"),
+            ("Up-Arrow/k", "Scroll Up"),
+            ("Down-Arrow/j", "Scroll Down"),
+            ("n", "Next File"),
+            ("p", "Previous File"),
+            ("Tab/Right-Arrow/l", "Next Tab"),
+            ("Shift+Tab/Left-Arrow/h", "Previous Tab"),
+        ];
+
+        let spans = keys
+            .iter()
+            .flat_map(|(key, desc)| {
+                let key = Span::styled(format!("| {key} "), Style::new().green());
+                let desc = Span::styled(format!(" {desc} | "), Style::new().green());
+                [key, desc]
+            })
+            .collect_vec();
+
+        let paragraph = Paragraph::new(Line::from(spans)).alignment(Alignment::Center);
 
         frame.render_widget(paragraph, area);
     }
@@ -251,6 +291,7 @@ mod interactive_output {
         let mut interactive_inputs = InteractiveInputs {
             tab_index: previous_inputs.tab_index,
             file_index: previous_inputs.file_index,
+            scroll_index: previous_inputs.scroll_index,
             ..Default::default()
         };
 
@@ -262,12 +303,32 @@ mod interactive_output {
 
                 match key.code {
                     KeyCode::Char('n') => interactive_inputs.file_index += 1,
-                    KeyCode::Char('p') => interactive_inputs.file_index -= 1,
+                    KeyCode::Char('p') => {
+                        if interactive_inputs.file_index == 0 {
+                            interactive_inputs.file_index = usize::MAX;
+                        } else {
+                            interactive_inputs.file_index -= 1;
+                        }
+                    }
                     KeyCode::Char('l') | KeyCode::Right | KeyCode::Tab => {
                         interactive_inputs.tab_index += 1;
                     }
                     KeyCode::Char('h') | KeyCode::Left | KeyCode::BackTab => {
                         interactive_inputs.tab_index -= 1;
+                    }
+                    KeyCode::Char('k') | KeyCode::Up => {
+                        if interactive_inputs.scroll_index == 0 {
+                            interactive_inputs.scroll_index = u16::MAX;
+                        } else {
+                            interactive_inputs.scroll_index -= 1;
+                        }
+                    }
+                    KeyCode::Char('j') | KeyCode::Down => {
+                        if interactive_inputs.scroll_index == u16::MAX {
+                            interactive_inputs.scroll_index = u16::MIN;
+                        } else {
+                            interactive_inputs.scroll_index += 1;
+                        }
                     }
                     KeyCode::Char('q') => interactive_inputs.quit = true,
                     _ => return Ok(interactive_inputs),
