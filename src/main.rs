@@ -1,11 +1,13 @@
+use std::default;
 use std::io::{self, stdout, BufRead, IsTerminal};
 use std::{path::Path, process::Command};
 
 use colored::Colorize;
+use crossterm::event::{Event, KeyCode};
 use crossterm::terminal::{
     self, disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen,
 };
-use crossterm::ExecutableCommand;
+use crossterm::{event, ExecutableCommand};
 use pest::Parser;
 use ratatui::backend::CrosstermBackend;
 use ratatui::{Frame, Terminal};
@@ -59,6 +61,14 @@ mod cli {
             Self::parse()
         }
     }
+}
+
+/// `InteractiveInputs` contains possible inputs for interactive mode.
+#[derive(Default)]
+struct InteractiveInputs {
+    pub next_file: bool,
+    pub next_tab: bool,
+    pub previous_tab: bool,
 }
 
 fn execute_command_on_file(path: &Path, command: &str) -> String {
@@ -129,21 +139,45 @@ fn non_interactive_output(file: &TaggedFile, command_output: &str) {
 fn interactive_output(file: &TaggedFile, command_output: &str) -> io::Result<()> {
     let mut terminal = Terminal::new(CrosstermBackend::new(stdout()))?;
 
-    let mut show_next = false;
-    while !show_next {
-        terminal.draw(|frame| interactive_output_ui(file, command_output, frame))?;
-        show_next = handle_events()?;
+    let mut interactive_inputs = InteractiveInputs::default();
+    while !interactive_inputs.next_file {
+        terminal.draw(|frame| {
+            interactive_output_ui(file, command_output, &interactive_inputs, frame);
+        })?;
+        interactive_inputs = handle_events()?;
     }
 
     Ok(())
 }
 
-fn interactive_output_ui(file: &TaggedFile, command_output: &str, frame: &mut Frame) {
+fn interactive_output_ui(
+    file: &TaggedFile,
+    command_output: &str,
+    interactive_inputs: &InteractiveInputs,
+    frame: &mut Frame,
+) {
     todo!()
 }
 
-fn handle_events() -> io::Result<bool> {
-    todo!()
+fn handle_events() -> io::Result<InteractiveInputs> {
+    let mut interactive_inputs = InteractiveInputs::default();
+
+    if event::poll(std::time::Duration::from_millis(50))? {
+        if let Event::Key(key) = event::read()? {
+            if key.kind != event::KeyEventKind::Press {
+                return Ok(interactive_inputs);
+            }
+
+            match key.code {
+                KeyCode::Char('n') => interactive_inputs.next_file = true,
+                KeyCode::Char('l') | KeyCode::Right => interactive_inputs.next_tab = true,
+                KeyCode::Char('h') | KeyCode::Left => interactive_inputs.previous_tab = true,
+                _ => return Ok(interactive_inputs),
+            }
+        }
+    }
+
+    Ok(interactive_inputs)
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
