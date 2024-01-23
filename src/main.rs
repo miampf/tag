@@ -137,8 +137,11 @@ mod interactive_output {
     use ratatui::{symbols, Frame, Terminal};
     use std::io::{self, stdout};
     use std::rc::Rc;
+    use tui_textarea::{Input, Key, TextArea};
 
     use tag::search::TaggedFile;
+
+    use crate::execute_command_on_file;
 
     /// `InteractiveInputs` contains possible inputs for interactive mode.
     #[derive(Default)]
@@ -146,11 +149,18 @@ mod interactive_output {
         pub tab_index: usize,
         pub file_index: usize,
         pub scroll_index: u16,
+        pub command_mode: bool,
         pub quit: bool,
     }
 
     pub fn interactive_output(files: &[TaggedFile], command_outputs: &[String]) -> io::Result<()> {
         let mut terminal = Terminal::new(CrosstermBackend::new(stdout()))?;
+
+        // the command textarea
+        let mut textarea = TextArea::default();
+        textarea.set_cursor_line_style(Style::default());
+        textarea.set_placeholder_text("Enter a command");
+        textarea.set_block(Block::new().title("command").borders(Borders::all()));
 
         let mut interactive_inputs = InteractiveInputs::default();
         while !interactive_inputs.quit {
@@ -158,7 +168,13 @@ mod interactive_output {
             let command_output = command_outputs[interactive_inputs.file_index].clone();
 
             terminal.draw(|frame| {
-                interactive_output_ui(file, command_output.as_str(), &interactive_inputs, frame);
+                interactive_output_ui(
+                    file,
+                    command_output.as_str(),
+                    &mut interactive_inputs,
+                    &mut textarea,
+                    frame,
+                );
             })?;
             interactive_inputs = handle_events(&interactive_inputs)?;
 
@@ -174,23 +190,28 @@ mod interactive_output {
     fn interactive_output_ui(
         file: &TaggedFile,
         command_output: &str,
-        interactive_inputs: &InteractiveInputs,
+        interactive_inputs: &mut InteractiveInputs,
+        text_area: &mut TextArea,
         frame: &mut Frame,
     ) {
-        let area = layout(frame.size(), Direction::Vertical, &[1, 0, 1]);
+        if interactive_inputs.command_mode {
+            interactive_inputs.command_mode = command_mode(file, text_area, frame).unwrap();
+        } else {
+            let area = layout(frame.size(), Direction::Vertical, &[1, 0, 1]);
 
-        render_tabs(area[0], frame, interactive_inputs);
+            render_tabs(area[0], frame, interactive_inputs);
 
-        render_tab_content(
-            file,
-            command_output,
-            interactive_inputs.tab_index,
-            interactive_inputs.scroll_index,
-            area[1],
-            frame,
-        );
+            render_tab_content(
+                file,
+                command_output,
+                interactive_inputs.tab_index,
+                interactive_inputs.scroll_index,
+                area[1],
+                frame,
+            );
 
-        render_help_menu(area[2], frame);
+            render_help_menu(area[2], frame);
+        }
     }
 
     fn render_tabs(area: Rect, frame: &mut Frame, interactive_inputs: &InteractiveInputs) {
@@ -201,6 +222,39 @@ mod interactive_output {
             .divider(symbols::DOT);
 
         frame.render_widget(tabs, area);
+    }
+
+    fn command_mode(
+        file: &TaggedFile,
+        text_area: &mut TextArea,
+        frame: &mut Frame,
+    ) -> Result<bool, Box<dyn std::error::Error>> {
+        let layout =
+            Layout::default().constraints([Constraint::Length(3), Constraint::Min(1)].as_slice());
+
+        match crossterm::event::read()?.into() {
+            Input { key: Key::Esc, .. } => {
+                return Ok(true);
+            }
+            Input {
+                key: Key::Enter, ..
+            } => {
+                execute_command_on_file(&file.path, &text_area.lines()[0]);
+                return Ok(false);
+            }
+            Input {
+                key: Key::Char('m'),
+                ctrl: true,
+                ..
+            } => {}
+            input => {
+                text_area.input(input);
+            }
+        }
+
+        frame.render_widget(text_area.widget(), layout.split(frame.size())[0]);
+
+        Ok(true)
     }
 
     fn render_tab_content(
@@ -251,6 +305,7 @@ mod interactive_output {
             ("p", "Previous File"),
             ("Tab/Right-Arrow/l", "Next Tab"),
             ("Shift+Tab/Left-Arrow/h", "Previous Tab"),
+            ("c", "Execute a command"),
         ];
 
         let spans = keys
@@ -292,6 +347,7 @@ mod interactive_output {
             tab_index: previous_inputs.tab_index,
             file_index: previous_inputs.file_index,
             scroll_index: previous_inputs.scroll_index,
+            command_mode: previous_inputs.command_mode,
             ..Default::default()
         };
 
@@ -330,6 +386,7 @@ mod interactive_output {
                             interactive_inputs.scroll_index += 1;
                         }
                     }
+                    KeyCode::Char('c') => interactive_inputs.command_mode = true,
                     KeyCode::Char('q') => interactive_inputs.quit = true,
                     _ => return Ok(interactive_inputs),
                 }

@@ -22,6 +22,7 @@ pest = "2.7.6"
 pest_derive = "2.7.6"
 ratatui = "0.25.0"
 textwrap = "0.16.0"
+tui-textarea = "0.4.0"
 walkdir = "2.4.0"
 
 [lints.clippy]
