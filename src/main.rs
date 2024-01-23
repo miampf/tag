@@ -147,16 +147,16 @@ mod interactive_output {
         pub quit: bool,
     }
 
-    pub fn interactive_output(files: &[TaggedFile]) -> io::Result<()> {
+    pub fn interactive_output(files: &[TaggedFile], command_outputs: &[String]) -> io::Result<()> {
         let mut terminal = Terminal::new(CrosstermBackend::new(stdout()))?;
 
         let mut interactive_inputs = InteractiveInputs::default();
         while !interactive_inputs.quit {
             let file = &files[interactive_inputs.file_index];
-            let command_output = "";
+            let command_output = command_outputs[interactive_inputs.file_index].clone();
 
             terminal.draw(|frame| {
-                interactive_output_ui(file, command_output, &interactive_inputs, frame);
+                interactive_output_ui(file, command_output.as_str(), &interactive_inputs, frame);
             })?;
             interactive_inputs = handle_events(&interactive_inputs)?;
 
@@ -331,6 +331,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     let mut file_matched_index = Vec::new();
+    let mut command_outputs = Vec::new();
 
     for file in file_index {
         let ast = construct_query_ast(
@@ -370,10 +371,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
 
         file_matched_index.push(file);
+        command_outputs.push(output);
     }
 
     if args.interactive {
-        interactive_output::interactive_output(&file_matched_index)?;
+        interactive_output::interactive_output(&file_matched_index, &command_outputs)?;
 
         disable_raw_mode()?;
         stdout().execute(LeaveAlternateScreen)?;
