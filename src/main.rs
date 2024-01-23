@@ -152,7 +152,7 @@ mod interactive_output {
             terminal.draw(|frame| {
                 interactive_output_ui(file, command_output, &interactive_inputs, frame);
             })?;
-            interactive_inputs = handle_events()?;
+            interactive_inputs = handle_events(&interactive_inputs)?;
 
             // prevent an overflow of the tab index
             // and also handle wrapping
@@ -182,8 +182,11 @@ mod interactive_output {
         frame.render_widget(tabs, frame.size());
     }
 
-    fn handle_events() -> io::Result<InteractiveInputs> {
-        let mut interactive_inputs = InteractiveInputs::default();
+    fn handle_events(previous_inputs: &InteractiveInputs) -> io::Result<InteractiveInputs> {
+        let mut interactive_inputs = InteractiveInputs {
+            tab_index: previous_inputs.tab_index,
+            ..Default::default()
+        };
 
         if event::poll(std::time::Duration::from_millis(50))? {
             if let Event::Key(key) = event::read()? {
