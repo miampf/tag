@@ -3,6 +3,7 @@ use std::{path::Path, process::Command};
 
 use colored::Colorize;
 use pest::Parser;
+use tag::search::TaggedFile;
 use tag::{
     parsers::searchquery::{construct_query_ast, evaluate_ast, QueryParser, Rule},
     search::get_tags_from_files,
@@ -13,6 +14,7 @@ mod cli {
 
     #[derive(Parser)]
     #[command(author, version, about, long_about = None)]
+    #[allow(clippy::struct_excessive_bools)]
     pub struct Cli {
         #[clap(value_name = "PATH")]
         /// The path that will be searched.
@@ -22,7 +24,7 @@ mod cli {
         /// Search query for the tags.
         pub query: Option<String>,
 
-        #[arg(short, long)]
+        #[arg(short, long, group = "output")]
         /// Only print the paths of matched files.
         pub silent: bool,
 
@@ -41,6 +43,9 @@ mod cli {
         #[arg(short, long, group = "q-input")]
         /// Receive a query from the standard input.
         pub query_stdin: bool,
+
+        #[arg(short, long, group = "output")]
+        pub interactive: bool,
     }
 
     impl Cli {
@@ -102,6 +107,17 @@ fn execute_filter_command_on_file(path: &Path, command: &str) -> bool {
     }
 
     output.unwrap().status.success()
+}
+
+fn non_interactive_output(file: &TaggedFile, command_output: &str) {
+    println!("\t{}", format!("tags: {:?}", file.tags).blue());
+
+    if !command_output.is_empty() {
+        println!(
+            "\tOutput of command:\n{}",
+            textwrap::indent(command_output, "\t\t")
+        );
+    }
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -176,15 +192,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             String::new()
         };
 
-        if !args.silent {
-            println!("\t{}", format!("tags: {:?}", file.tags).blue());
+        // don't print any more information in silent mode
+        if args.silent {
+            continue;
+        }
 
-            if !output.is_empty() {
-                println!(
-                    "\tOutput of command:\n{}",
-                    textwrap::indent(output.as_str(), "\t\t")
-                );
-            }
+        if args.interactive {
+            todo!()
+        } else {
+            non_interactive_output(&file, output.as_str());
         }
     }
 
