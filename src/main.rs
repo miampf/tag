@@ -1,16 +1,13 @@
-use std::default;
-use std::io::{self, stdout, BufRead, IsTerminal};
+use std::io::{stdout, BufRead, IsTerminal};
 use std::{path::Path, process::Command};
 
 use colored::Colorize;
-use crossterm::event::{Event, KeyCode};
 use crossterm::terminal::{
-    self, disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen,
+    disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen,
 };
-use crossterm::{event, ExecutableCommand};
+use crossterm::ExecutableCommand;
 use pest::Parser;
-use ratatui::backend::CrosstermBackend;
-use ratatui::{Frame, Terminal};
+
 use tag::search::TaggedFile;
 use tag::{
     parsers::searchquery::{construct_query_ast, evaluate_ast, QueryParser, Rule},
@@ -61,14 +58,6 @@ mod cli {
             Self::parse()
         }
     }
-}
-
-/// `InteractiveInputs` contains possible inputs for interactive mode.
-#[derive(Default)]
-struct InteractiveInputs {
-    pub next_file: bool,
-    pub next_tab: bool,
-    pub previous_tab: bool,
 }
 
 fn execute_command_on_file(path: &Path, command: &str) -> String {
@@ -136,48 +125,83 @@ fn non_interactive_output(file: &TaggedFile, command_output: &str) {
     }
 }
 
-fn interactive_output(file: &TaggedFile, command_output: &str) -> io::Result<()> {
-    let mut terminal = Terminal::new(CrosstermBackend::new(stdout()))?;
+mod interactive_output {
+    use crossterm::event::{Event, KeyCode};
 
-    let mut interactive_inputs = InteractiveInputs::default();
-    while !interactive_inputs.next_file {
-        terminal.draw(|frame| {
-            interactive_output_ui(file, command_output, &interactive_inputs, frame);
-        })?;
-        interactive_inputs = handle_events()?;
+    use crossterm::event;
+    use ratatui::backend::CrosstermBackend;
+    use ratatui::style::{Style, Stylize};
+    use ratatui::widgets::{Block, Borders, Tabs};
+    use ratatui::{symbols, Frame, Terminal};
+    use std::io::{self, stdout};
+
+    use tag::search::TaggedFile;
+
+    /// `InteractiveInputs` contains possible inputs for interactive mode.
+    #[derive(Default)]
+    struct InteractiveInputs {
+        pub next_file: bool,
+        pub tab_index: usize,
     }
 
-    Ok(())
-}
+    pub fn interactive_output(file: &TaggedFile, command_output: &str) -> io::Result<()> {
+        let mut terminal = Terminal::new(CrosstermBackend::new(stdout()))?;
 
-fn interactive_output_ui(
-    file: &TaggedFile,
-    command_output: &str,
-    interactive_inputs: &InteractiveInputs,
-    frame: &mut Frame,
-) {
-    todo!()
-}
+        let mut interactive_inputs = InteractiveInputs::default();
+        while !interactive_inputs.next_file {
+            terminal.draw(|frame| {
+                interactive_output_ui(file, command_output, &interactive_inputs, frame);
+            })?;
+            interactive_inputs = handle_events()?;
 
-fn handle_events() -> io::Result<InteractiveInputs> {
-    let mut interactive_inputs = InteractiveInputs::default();
+            // prevent an overflow of the tab index
+            // and also handle wrapping
+            interactive_inputs.tab_index %= 3;
+        }
 
-    if event::poll(std::time::Duration::from_millis(50))? {
-        if let Event::Key(key) = event::read()? {
-            if key.kind != event::KeyEventKind::Press {
-                return Ok(interactive_inputs);
-            }
+        Ok(())
+    }
 
-            match key.code {
-                KeyCode::Char('n') => interactive_inputs.next_file = true,
-                KeyCode::Char('l') | KeyCode::Right => interactive_inputs.next_tab = true,
-                KeyCode::Char('h') | KeyCode::Left => interactive_inputs.previous_tab = true,
-                _ => return Ok(interactive_inputs),
+    fn interactive_output_ui(
+        file: &TaggedFile,
+        command_output: &str,
+        interactive_inputs: &InteractiveInputs,
+        frame: &mut Frame,
+    ) {
+        let tabs = Tabs::new(vec!["File Content", "Command Output", "Tags"])
+            .block(
+                Block::default()
+                    .title(file.path.to_str().unwrap())
+                    .borders(Borders::all()),
+            )
+            .style(Style::default().white())
+            .highlight_style(Style::default().blue())
+            .select(interactive_inputs.tab_index)
+            .divider(symbols::DOT);
+
+        frame.render_widget(tabs, frame.size());
+    }
+
+    fn handle_events() -> io::Result<InteractiveInputs> {
+        let mut interactive_inputs = InteractiveInputs::default();
+
+        if event::poll(std::time::Duration::from_millis(50))? {
+            if let Event::Key(key) = event::read()? {
+                if key.kind != event::KeyEventKind::Press {
+                    return Ok(interactive_inputs);
+                }
+
+                match key.code {
+                    KeyCode::Char('n') => interactive_inputs.next_file = true,
+                    KeyCode::Char('l') | KeyCode::Right => interactive_inputs.tab_index += 1,
+                    KeyCode::Char('h') | KeyCode::Left => interactive_inputs.tab_index -= 1,
+                    _ => return Ok(interactive_inputs),
+                }
             }
         }
-    }
 
-    Ok(interactive_inputs)
+        Ok(interactive_inputs)
+    }
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -265,7 +289,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
 
         if args.interactive {
-            todo!()
+            interactive_output::interactive_output(&file, &output)?;
         } else {
             non_interactive_output(&file, output.as_str());
         }
