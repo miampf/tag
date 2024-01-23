@@ -126,14 +126,16 @@ fn non_interactive_output(file: &TaggedFile, command_output: &str) {
 }
 
 mod interactive_output {
-    use crossterm::event::{Event, KeyCode};
-
     use crossterm::event;
+    use crossterm::event::{Event, KeyCode};
+    use itertools::Itertools;
     use ratatui::backend::CrosstermBackend;
+    use ratatui::layout::{Alignment, Constraint, Direction, Layout, Rect};
     use ratatui::style::{Style, Stylize};
-    use ratatui::widgets::{Block, Borders, Tabs};
-    use ratatui::{symbols, Frame, Terminal};
+    use ratatui::widgets::{Block, Borders, Paragraph, Tabs, Widget, Wrap};
+    use ratatui::{layout, symbols, Frame, Terminal};
     use std::io::{self, stdout};
+    use std::rc::Rc;
 
     use tag::search::TaggedFile;
 
@@ -168,18 +170,76 @@ mod interactive_output {
         interactive_inputs: &InteractiveInputs,
         frame: &mut Frame,
     ) {
+        let area = layout(frame.size(), Direction::Vertical, &[1, 0]);
         let tabs = Tabs::new(vec!["File Content", "Command Output", "Tags"])
-            .block(
-                Block::default()
-                    .title(file.path.to_str().unwrap())
-                    .borders(Borders::all()),
-            )
             .style(Style::default().white())
             .highlight_style(Style::default().blue())
             .select(interactive_inputs.tab_index)
             .divider(symbols::DOT);
 
-        frame.render_widget(tabs, frame.size());
+        frame.render_widget(tabs, area[0]);
+
+        render_tab_content(
+            file,
+            command_output,
+            interactive_inputs.tab_index,
+            area[1],
+            frame,
+        );
+    }
+
+    fn render_tab_content(
+        file: &TaggedFile,
+        command_output: &str,
+        tab_index: usize,
+        area: Rect,
+        frame: &mut Frame,
+    ) {
+        let content = match tab_index {
+            0 => std::fs::read_to_string(&file.path).unwrap(),
+            1 => command_output.to_string(),
+            2 => {
+                let mut out_string = String::new();
+                for tag in &file.tags {
+                    out_string += tag.as_str();
+                    out_string.push('\n');
+                }
+                out_string
+            }
+            _ => unreachable!(),
+        };
+
+        let paragraph = Paragraph::new(content)
+            .block(
+                Block::new()
+                    .title(file.path.to_str().unwrap())
+                    .borders(Borders::all()),
+            )
+            .style(Style::new())
+            .alignment(Alignment::Left)
+            .wrap(Wrap { trim: false });
+
+        frame.render_widget(paragraph, area);
+    }
+
+    /// simple helper method to split an area into multiple sub-areas
+    /// copied and slightly modified from
+    /// [here](https://docs.rs/ratatui/latest/src/demo2/root.rs.html#34)
+    pub fn layout(area: Rect, direction: Direction, heights: &[u16]) -> Rc<[Rect]> {
+        let constraints = heights
+            .iter()
+            .map(|&h| {
+                if h > 0 {
+                    Constraint::Length(h)
+                } else {
+                    Constraint::Min(0)
+                }
+            })
+            .collect_vec();
+        Layout::default()
+            .direction(direction)
+            .constraints(constraints)
+            .split(area)
     }
 
     fn handle_events(previous_inputs: &InteractiveInputs) -> io::Result<InteractiveInputs> {
@@ -196,8 +256,12 @@ mod interactive_output {
 
                 match key.code {
                     KeyCode::Char('n') => interactive_inputs.next_file = true,
-                    KeyCode::Char('l') | KeyCode::Right => interactive_inputs.tab_index += 1,
-                    KeyCode::Char('h') | KeyCode::Left => interactive_inputs.tab_index -= 1,
+                    KeyCode::Char('l') | KeyCode::Right | KeyCode::Tab => {
+                        interactive_inputs.tab_index += 1;
+                    }
+                    KeyCode::Char('h') | KeyCode::Left | KeyCode::BackTab => {
+                        interactive_inputs.tab_index -= 1;
+                    }
                     _ => return Ok(interactive_inputs),
                 }
             }

@@ -586,6 +586,7 @@ dependencies = [
  "clap",
  "colored",
  "crossterm",
+ "itertools",
  "lazy_static",
  "pest",
  "pest_derive",
