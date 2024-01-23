@@ -133,7 +133,7 @@ mod interactive_output {
     use ratatui::layout::{Alignment, Constraint, Direction, Layout, Rect};
     use ratatui::style::{Style, Stylize};
     use ratatui::text::{Line, Span};
-    use ratatui::widgets::{Block, Borders, Paragraph, Tabs, Wrap};
+    use ratatui::widgets::{Block, Borders, Clear, Paragraph, Tabs, Wrap};
     use ratatui::{symbols, Frame, Terminal};
     use std::io::{self, stdout};
     use std::rc::Rc;
@@ -196,22 +196,21 @@ mod interactive_output {
     ) {
         if interactive_inputs.command_mode {
             interactive_inputs.command_mode = command_mode(file, text_area, frame).unwrap();
-        } else {
-            let area = layout(frame.size(), Direction::Vertical, &[1, 0, 1]);
-
-            render_tabs(area[0], frame, interactive_inputs);
-
-            render_tab_content(
-                file,
-                command_output,
-                interactive_inputs.tab_index,
-                interactive_inputs.scroll_index,
-                area[1],
-                frame,
-            );
-
-            render_help_menu(area[2], frame);
         }
+        let area = layout(frame.size(), Direction::Vertical, &[1, 0, 1]);
+
+        render_tabs(area[0], frame, interactive_inputs);
+
+        render_tab_content(
+            file,
+            command_output,
+            interactive_inputs.tab_index,
+            interactive_inputs.scroll_index,
+            area[1],
+            frame,
+        );
+
+        render_help_menu(area[2], frame);
     }
 
     fn render_tabs(area: Rect, frame: &mut Frame, interactive_inputs: &InteractiveInputs) {
@@ -224,6 +223,7 @@ mod interactive_output {
         frame.render_widget(tabs, area);
     }
 
+    // TODO: Fix rendering.
     fn command_mode(
         file: &TaggedFile,
         text_area: &mut TextArea,
@@ -252,7 +252,16 @@ mod interactive_output {
             }
         }
 
-        frame.render_widget(text_area.widget(), layout.split(frame.size())[0]);
+        let area = Rect::new(
+            0,
+            frame.size().height / 2,
+            frame.size().width,
+            frame.size().height,
+        );
+
+        frame.render_widget(Clear, layout.split(area)[0]);
+
+        frame.render_widget(text_area.widget(), layout.split(area)[0]);
 
         Ok(true)
     }
