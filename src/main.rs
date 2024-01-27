@@ -216,7 +216,8 @@ mod interactive_output {
         render_help_menu(area[2], frame);
 
         if interactive_inputs.command_mode {
-            interactive_inputs.command_mode = command_mode(file, text_area, frame).unwrap();
+            interactive_inputs.command_mode = command_mode_input(file, text_area).unwrap();
+            command_mode_render(text_area, frame);
         }
     }
 
@@ -230,14 +231,20 @@ mod interactive_output {
         frame.render_widget(tabs, area);
     }
 
-    fn command_mode(
-        file: &TaggedFile,
-        text_area: &mut TextArea,
-        frame: &mut Frame,
-    ) -> Result<bool, Box<dyn std::error::Error>> {
+    fn command_mode_render(text_area: &mut TextArea, frame: &mut Frame) {
         let layout =
             Layout::default().constraints([Constraint::Length(3), Constraint::Min(1)].as_slice());
 
+        let area = Rect::new(0, frame.size().height / 2, frame.size().width, 10);
+
+        frame.render_widget(Clear, layout.split(area)[0]);
+        frame.render_widget(text_area.widget(), layout.split(area)[0]);
+    }
+
+    fn command_mode_input(
+        file: &TaggedFile,
+        text_area: &mut TextArea,
+    ) -> Result<bool, std::io::Error> {
         match crossterm::event::read()?.into() {
             Input { key: Key::Esc, .. } => {
                 return Ok(false);
@@ -257,11 +264,6 @@ mod interactive_output {
                 text_area.input(input);
             }
         }
-
-        let area = Rect::new(0, frame.size().height / 2, frame.size().width, 10);
-
-        frame.render_widget(Clear, layout.split(area)[0]);
-        frame.render_widget(text_area.widget(), layout.split(area)[0]);
 
         Ok(true)
     }
