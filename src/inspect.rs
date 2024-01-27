@@ -280,7 +280,7 @@ fn command_mode_input(file: &TaggedFile, text_area: &mut TextArea) -> Result<boo
         Input {
             key: Key::Enter, ..
         } => {
-            execute_command_on_file(&file.path, &text_area.lines()[0]);
+            let _ = execute_command_on_file(&file.path, &text_area.lines()[0]);
             return Ok(false);
         }
         Input {

@@ -3,6 +3,11 @@ use std::{path::Path, process::Command};
 use colored::Colorize;
 
 /// `execute_command_on_file` executes a command on a given #FILE#.
+///
+/// # Panics
+///
+/// This function panics if it fails to convert the given path to a `&str`.
+#[must_use]
 pub fn execute_command_on_file(path: &Path, command: &str) -> String {
     let command = command.replace("#FILE#", path.to_str().unwrap());
 
@@ -37,7 +42,11 @@ pub fn execute_command_on_file(path: &Path, command: &str) -> String {
 }
 
 /// `execute_filter_command_on_file` executes a command on a given #FILE# and returns
-/// true if the command ran successfully.
+///
+/// # Panics
+///
+/// This function panics if it fails to convert the given path to a `&str`.
+#[must_use]
 pub fn execute_filter_command_on_file(path: &Path, command: &str) -> bool {
     let command = command.replace("#FILE#", path.to_str().unwrap());
 
