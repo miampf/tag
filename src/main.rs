@@ -224,7 +224,6 @@ mod interactive_output {
         frame.render_widget(tabs, area);
     }
 
-    // TODO: Fix rendering.
     fn command_mode(
         file: &TaggedFile,
         text_area: &mut TextArea,
