@@ -1,7 +1,7 @@
 [package]
 name = "tag"
 authors = ["miampf"]
-version = "0.2.0"
+version = "0.3.0"
 edition = "2021"
 description = "Search for local text files with a simple tagging system."
 license = "MIT"
