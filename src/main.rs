@@ -160,7 +160,13 @@ mod interactive_output {
         let mut textarea = TextArea::default();
         textarea.set_cursor_line_style(Style::default());
         textarea.set_placeholder_text("Enter a command");
-        textarea.set_block(Block::new().title("command").borders(Borders::all()));
+        textarea.set_block(
+            Block::new()
+                .title("command")
+                .borders(Borders::all())
+                .border_style(Style::default().red().on_black())
+                .style(Style::default().black().on_white()),
+        );
 
         let mut interactive_inputs = InteractiveInputs::default();
         while !interactive_inputs.quit {
