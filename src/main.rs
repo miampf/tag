@@ -194,9 +194,6 @@ mod interactive_output {
         text_area: &mut TextArea,
         frame: &mut Frame,
     ) {
-        if interactive_inputs.command_mode {
-            interactive_inputs.command_mode = command_mode(file, text_area, frame).unwrap();
-        }
         let area = layout(frame.size(), Direction::Vertical, &[1, 0, 1]);
 
         render_tabs(area[0], frame, interactive_inputs);
@@ -211,6 +208,10 @@ mod interactive_output {
         );
 
         render_help_menu(area[2], frame);
+
+        if interactive_inputs.command_mode {
+            interactive_inputs.command_mode = command_mode(file, text_area, frame).unwrap();
+        }
     }
 
     fn render_tabs(area: Rect, frame: &mut Frame, interactive_inputs: &InteractiveInputs) {
@@ -234,7 +235,7 @@ mod interactive_output {
 
         match crossterm::event::read()?.into() {
             Input { key: Key::Esc, .. } => {
-                return Ok(true);
+                return Ok(false);
             }
             Input {
                 key: Key::Enter, ..
@@ -252,15 +253,9 @@ mod interactive_output {
             }
         }
 
-        let area = Rect::new(
-            0,
-            frame.size().height / 2,
-            frame.size().width,
-            frame.size().height,
-        );
+        let area = Rect::new(0, frame.size().height / 2, frame.size().width, 10);
 
         frame.render_widget(Clear, layout.split(area)[0]);
-
         frame.render_widget(text_area.widget(), layout.split(area)[0]);
 
         Ok(true)
