@@ -1,8 +1,15 @@
-use std::io::{BufRead, IsTerminal};
-use std::{path::Path, process::Command};
+use std::io::{stdout, BufRead, IsTerminal};
 
 use colored::Colorize;
+use crossterm::terminal::{
+    disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen,
+};
+use crossterm::ExecutableCommand;
 use pest::Parser;
+
+use tag::commands::{execute_command_on_file, execute_filter_command_on_file};
+use tag::inspect;
+use tag::search::TaggedFile;
 use tag::{
     parsers::searchquery::{construct_query_ast, evaluate_ast, QueryParser, Rule},
     search::get_tags_from_files,
@@ -13,6 +20,7 @@ mod cli {
 
     #[derive(Parser)]
     #[command(author, version, about, long_about = None)]
+    #[allow(clippy::struct_excessive_bools)]
     pub struct Cli {
         #[clap(value_name = "PATH")]
         /// The path that will be searched.
@@ -22,7 +30,7 @@ mod cli {
         /// Search query for the tags.
         pub query: Option<String>,
 
-        #[arg(short, long)]
+        #[arg(short, long, group = "output")]
         /// Only print the paths of matched files.
         pub silent: bool,
 
@@ -41,6 +49,10 @@ mod cli {
         #[arg(short, long, group = "q-input")]
         /// Receive a query from the standard input.
         pub query_stdin: bool,
+
+        #[arg(short, long, group = "output")]
+        /// Enter an interactive inspection mode to view each file individually.
+        pub inspect: bool,
     }
 
     impl Cli {
@@ -50,65 +62,22 @@ mod cli {
     }
 }
 
-fn execute_command_on_file(path: &Path, command: &str) -> String {
-    let command = command.replace("#FILE#", path.to_str().unwrap());
+fn non_interactive_output(file: &TaggedFile, command_output: &str) {
+    println!("\t{}", format!("tags: {:?}", file.tags).blue());
 
-    let output = if cfg!(target_os = "windows") {
-        Command::new("cmd").arg("/C").arg(command.clone()).output()
-    } else {
-        Command::new("bash").arg("-c").arg(command.clone()).output()
-    };
-
-    if let Err(e) = &output {
-        eprintln!(
-            "{} Wasn't able to execute command {}: {}",
-            "[ERROR]".red().bold(),
-            command.blue().underline(),
-            e.to_string().red()
+    if !command_output.is_empty() {
+        println!(
+            "\tOutput of command:\n{}",
+            textwrap::indent(command_output, "\t\t")
         );
     }
-
-    let output = output.unwrap();
-    let output_string = std::str::from_utf8(output.stdout.as_slice());
-
-    if let Err(e) = &output_string {
-        eprintln!(
-            "{} Failed to get output from command {}: {}",
-            "[ERROR]".red().bold(),
-            command.blue().underline(),
-            e.to_string().red()
-        );
-    }
-
-    output_string.unwrap().to_string()
-}
-
-fn execute_filter_command_on_file(path: &Path, command: &str) -> bool {
-    let command = command.replace("#FILE#", path.to_str().unwrap());
-
-    let output = if cfg!(target_os = "windows") {
-        Command::new("cmd").arg("/C").arg(command.clone()).output()
-    } else {
-        Command::new("bash").arg("-c").arg(command.clone()).output()
-    };
-
-    if let Err(e) = &output {
-        eprintln!(
-            "{} Wasn't able to execute command {}: {}",
-            "[ERROR]".red().bold(),
-            command.blue().underline(),
-            e.to_string().red()
-        );
-    }
-
-    output.unwrap().status.success()
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut args = cli::Cli::new_and_parse();
 
     // detect if output is in a terminal or not
-    if !std::io::stdout().is_terminal() {
+    if !stdout().is_terminal() {
         args.silent = true;
         args.no_color = true;
     }
@@ -150,6 +119,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let query = query.unwrap();
 
+    if args.inspect {
+        enable_raw_mode()?;
+        stdout().execute(EnterAlternateScreen)?;
+    }
+
+    let mut file_matched_index = Vec::new();
+    let mut command_outputs = Vec::new();
+
     for file in file_index {
         let ast = construct_query_ast(
             query.clone().next().unwrap().into_inner(),
@@ -168,7 +145,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             continue;
         }
 
-        println!("{}", file.path.display().to_string().green());
+        if !args.inspect {
+            println!("{}", file.path.display().to_string().green());
+        }
 
         let output = if args.command.is_some() {
             execute_command_on_file(&file.path, &args.command.clone().unwrap())
@@ -176,16 +155,24 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             String::new()
         };
 
-        if !args.silent {
-            println!("\t{}", format!("tags: {:?}", file.tags).blue());
-
-            if !output.is_empty() {
-                println!(
-                    "\tOutput of command:\n{}",
-                    textwrap::indent(output.as_str(), "\t\t")
-                );
-            }
+        // don't print any more information in silent mode
+        if args.silent {
+            continue;
         }
+
+        if !args.inspect {
+            non_interactive_output(&file, output.as_str());
+        }
+
+        file_matched_index.push(file);
+        command_outputs.push(output);
+    }
+
+    if args.inspect {
+        inspect::interactive_output(&file_matched_index, &command_outputs)?;
+
+        disable_raw_mode()?;
+        stdout().execute(LeaveAlternateScreen)?;
     }
 
     Ok(())
