@@ -50,7 +50,8 @@ mod cli {
         pub query_stdin: bool,
 
         #[arg(short, long, group = "output")]
-        pub interactive: bool,
+        /// Enter an interactive inspection mode to view each file individually.
+        pub inspect: bool,
     }
 
     impl Cli {
@@ -454,7 +455,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let query = query.unwrap();
 
-    if args.interactive {
+    if args.inspect {
         enable_raw_mode()?;
         stdout().execute(EnterAlternateScreen)?;
     }
@@ -480,7 +481,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             continue;
         }
 
-        if !args.interactive {
+        if !args.inspect {
             println!("{}", file.path.display().to_string().green());
         }
 
@@ -495,7 +496,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             continue;
         }
 
-        if !args.interactive {
+        if !args.inspect {
             non_interactive_output(&file, output.as_str());
         }
 
@@ -503,7 +504,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         command_outputs.push(output);
     }
 
-    if args.interactive {
+    if args.inspect {
         interactive_output::interactive_output(&file_matched_index, &command_outputs)?;
 
         disable_raw_mode()?;
