@@ -134,7 +134,11 @@ fn render_tab_content(
     };
 
     #[allow(clippy::cast_possible_truncation)]
-    let scroll_index = scroll_index % content.lines().collect_vec().len() as u16;
+    let scroll_index = if content.is_empty() {
+        0
+    } else {
+        scroll_index % content.lines().collect_vec().len() as u16
+    };
 
     let paragraph = Paragraph::new(content)
         .block(
@@ -226,7 +230,11 @@ fn handle_events(previous_inputs: &InteractiveInputs) -> io::Result<InteractiveI
                     interactive_inputs.tab_index += 1;
                 }
                 KeyCode::Char('h') | KeyCode::Left | KeyCode::BackTab => {
-                    interactive_inputs.tab_index -= 1;
+                    if interactive_inputs.tab_index != 0 {
+                        interactive_inputs.tab_index -= 1;
+                    } else {
+                        interactive_inputs.tab_index = 2; // 2 = last tab
+                    }
                 }
                 KeyCode::Char('k') | KeyCode::Up => {
                     if interactive_inputs.scroll_index == 0 {
