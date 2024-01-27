@@ -31,6 +31,8 @@ Once you've added taglines to your local files you can run `tag`. `tag` will sea
 The `tag` help message:
 
 ```
+Search for local text files with a simple tagging system.
+
 Usage: tag [OPTIONS] <PATH> [QUERY]
 
 Arguments:
@@ -48,10 +50,13 @@ Options:
           Disable coloring
   -q, --query-stdin
           Receive a query from the standard input
+  -i, --inspect
+          Enter an interactive inspection mode to view each file individually
   -h, --help
           Print help
   -V, --version
           Print version
+
 ```
 
 A query contains operators and tags. Usable operators are `&` for the logical AND, `|` for the logical OR and `!` as a unary NOT. Furthermore, you can nest queries by using parantheses. A query could look like this:
@@ -71,3 +76,9 @@ tag "#asdf" . -f "grep 'something' #FILE#" -c "echo 'somethingelse' >> #FILE#"
 ```
 
 Will only match the files tagged with `#asdf` that also include the string "something". The string "somethingelse" will then be appended to each found file.
+
+### Inspect mode
+
+You can use the inspect mode using `-i`/`--inspect`. In this mode, the content of each file as well as the output of your `-c` command and found tags will be displayed. Keybindings are displayed at the bottom of the screen.
+
+Furthermore, inspect mode supports executing further commands on your files. Those commands are formatted the same way as a command on a file or a filter command.
