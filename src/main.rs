@@ -16,7 +16,7 @@ use tag::{
 };
 
 mod cli {
-    use clap::Parser;
+    use clap::{Parser, Subcommand};
 
     #[derive(Parser)]
     #[command(author, version, about, long_about = None)]
@@ -53,12 +53,21 @@ mod cli {
         #[arg(short, long, group = "output")]
         /// Enter an interactive inspection mode to view each file individually.
         pub inspect: bool,
+
+        #[clap(subcommand)]
+        pub subcommand: Option<Command>,
     }
 
     impl Cli {
         pub fn new_and_parse() -> Self {
             Self::parse()
         }
+    }
+
+    #[derive(Subcommand)]
+    pub enum Command {
+        /// Explore tagged files in all subdirectories.
+        Explore { path: String },
     }
 }
 
@@ -82,9 +91,9 @@ fn log_error(msg: &str, e: Box<dyn std::error::Error>) {
     );
 }
 
-fn main() {
-    let mut args = cli::Cli::new_and_parse();
+fn run_explore(path: String) {}
 
+fn run_topcmd(args: &mut cli::Cli) {
     // detect if output is in a terminal or not
     if !stdout().is_terminal() {
         args.silent = true;
@@ -203,5 +212,16 @@ fn main() {
             log_error("Failed to leave alternate screen:", Box::new(e));
             std::process::exit(1);
         }
+    }
+}
+
+fn main() {
+    let mut args = cli::Cli::new_and_parse();
+
+    match args.subcommand {
+        Some(subcommand) => match subcommand {
+            cli::Command::Explore { path } => run_explore(path),
+        },
+        None => run_topcmd(&mut args),
     }
 }
