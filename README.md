@@ -72,7 +72,7 @@ This query would match all files that contain `#tag1` AND `#tag2` OR files that 
 `tag` supports two flags that execute a system command. The `-c`/`--command` flag lets you add a command that should be executed on each matched file. The `-f`/`--filter-command` flag checks if an executed system command exits successfully. If not, the found file will not match, even tho it contains tags matching the query. You can use the string `#FILE#` in your command. This string will be replaced with the filepath of the file that matched the query. For example, the command
 
 ```
-tag "#asdf" . -f "grep 'something' #FILE#" -c "echo 'somethingelse' >> #FILE#"
+tag . "#asdf" -f "grep 'something' #FILE#" -c "echo 'somethingelse' >> #FILE#"
 ```
 
 Will only match the files tagged with `#asdf` that also include the string "something". The string "somethingelse" will then be appended to each found file.
