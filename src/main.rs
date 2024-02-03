@@ -73,7 +73,16 @@ fn non_interactive_output(file: &TaggedFile, command_output: &str) {
     }
 }
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+fn log_error(msg: &str, e: Box<dyn std::error::Error>) {
+    eprintln!(
+        "{} {} {}",
+        "[ERROR]".red().bold(),
+        msg.red(),
+        e.to_string().red().underline()
+    );
+}
+
+fn main() {
     let mut args = cli::Cli::new_and_parse();
 
     // detect if output is in a terminal or not
@@ -100,28 +109,41 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         args.query.unwrap()
     } else {
         let mut query = String::new();
-        std::io::stdin().lock().read_line(&mut query)?;
+        if let Err(e) = std::io::stdin().lock().read_line(&mut query) {
+            log_error("Failed to read query from stdin:", Box::new(e));
+            std::process::exit(1);
+        }
         query
     };
 
-    let file_index = get_tags_from_files(args.path.as_str())?;
-    let query = QueryParser::parse(Rule::tagsearch, query.as_str());
-
-    if let Err(e) = &query {
-        eprintln!(
-            "{} {}\n{}",
-            "[ERROR]".red().bold(),
-            "Invalid query".red(),
-            e.to_string().red()
-        );
-        std::process::exit(1);
-    }
-
-    let query = query.unwrap();
+    let file_index = match get_tags_from_files(args.path.as_str()) {
+        Ok(index) => index,
+        Err(e) => {
+            log_error("Failed to build file index:", e);
+            std::process::exit(1);
+        }
+    };
+    let query = match QueryParser::parse(Rule::tagsearch, query.as_str()) {
+        Ok(query) => query,
+        Err(e) => {
+            eprintln!(
+                "{} {}\n{}",
+                "[ERROR]".red().bold(),
+                "Invalid query: ".red(),
+                e.to_string().red()
+            );
+            std::process::exit(1);
+        }
+    };
 
     if args.inspect {
-        enable_raw_mode()?;
-        stdout().execute(EnterAlternateScreen)?;
+        if let Err(e) = enable_raw_mode() {
+            log_error("Failed to enable raw mode:", Box::new(e));
+            std::process::exit(1);
+        }
+        if let Err(e) = stdout().execute(EnterAlternateScreen) {
+            log_error("Failed to enter alternate screen: ", Box::new(e));
+        }
     }
 
     let mut file_matched_index = Vec::new();
@@ -169,11 +191,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     if args.inspect {
-        inspect::interactive_output(&file_matched_index, &command_outputs)?;
+        if let Err(e) = inspect::interactive_output(&file_matched_index, &command_outputs) {
+            log_error("Failed to enter interactive output mode:", Box::new(e));
+            std::process::exit(1);
+        }
 
-        disable_raw_mode()?;
-        stdout().execute(LeaveAlternateScreen)?;
+        if let Err(e) = disable_raw_mode() {
+            log_error("Failed to disable raw mode:", Box::new(e));
+        }
+        if let Err(e) = stdout().execute(LeaveAlternateScreen) {
+            log_error("Failed to leave alternate screen:", Box::new(e));
+            std::process::exit(1);
+        }
     }
-
-    Ok(())
 }
