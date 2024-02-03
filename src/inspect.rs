@@ -25,12 +25,12 @@ struct InteractiveInputs {
     pub quit: bool,
 }
 
-/// `interactive_output` handles the interactive UI of the inspect mode.
+/// `ui` handles the interactive UI of the inspect mode.
 ///
 /// # Errors
 ///
 /// This function returns an error if rendering or handling inputs fails.
-pub fn interactive_output(files: &[TaggedFile], command_outputs: &[String]) -> io::Result<()> {
+pub fn ui(files: &[TaggedFile], command_outputs: &[String]) -> io::Result<()> {
     let mut terminal = Terminal::new(CrosstermBackend::new(stdout()))?;
 
     // the command textarea
@@ -51,7 +51,7 @@ pub fn interactive_output(files: &[TaggedFile], command_outputs: &[String]) -> i
         let command_output = command_outputs[interactive_inputs.file_index].clone();
 
         terminal.draw(|frame| {
-            interactive_output_ui(
+            render(
                 file,
                 command_output.as_str(),
                 &mut interactive_inputs,
@@ -70,8 +70,8 @@ pub fn interactive_output(files: &[TaggedFile], command_outputs: &[String]) -> i
     Ok(())
 }
 
-/// `interactive_output_ui` renders the UI.
-fn interactive_output_ui(
+/// `render` renders the UI.
+fn render(
     file: &TaggedFile,
     command_output: &str,
     interactive_inputs: &mut InteractiveInputs,

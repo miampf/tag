@@ -91,7 +91,7 @@ fn log_error(msg: &str, e: Box<dyn std::error::Error>) {
     );
 }
 
-fn run_explore(path: String) {}
+fn run_explore(path: &str) {}
 
 fn run_topcmd(args: &mut cli::Cli) {
     // detect if output is in a terminal or not
@@ -115,7 +115,7 @@ fn run_topcmd(args: &mut cli::Cli) {
 
     // fetch the query
     let query = if args.query.is_some() {
-        args.query.unwrap()
+        args.query.clone().unwrap()
     } else {
         let mut query = String::new();
         if let Err(e) = std::io::stdin().lock().read_line(&mut query) {
@@ -200,7 +200,7 @@ fn run_topcmd(args: &mut cli::Cli) {
     }
 
     if args.inspect {
-        if let Err(e) = inspect::interactive_output(&file_matched_index, &command_outputs) {
+        if let Err(e) = inspect::ui(&file_matched_index, &command_outputs) {
             log_error("Failed to enter interactive output mode:", Box::new(e));
             std::process::exit(1);
         }
@@ -218,10 +218,12 @@ fn run_topcmd(args: &mut cli::Cli) {
 fn main() {
     let mut args = cli::Cli::new_and_parse();
 
-    match args.subcommand {
-        Some(subcommand) => match subcommand {
-            cli::Command::Explore { path } => run_explore(path),
-        },
-        None => run_topcmd(&mut args),
+    #[allow(clippy::option_if_let_else)]
+    if let Some(subcommand) = args.subcommand {
+        match subcommand {
+            cli::Command::Explore { path } => run_explore(path.as_str()),
+        }
+    } else {
+        run_topcmd(&mut args);
     }
 }
