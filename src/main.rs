@@ -20,11 +20,12 @@ mod cli {
 
     #[derive(Parser)]
     #[command(author, version, about, long_about = None)]
+    #[command(subcommand_negates_reqs = true, subcommand_precedence_over_arg = true)]
     #[allow(clippy::struct_excessive_bools)]
     pub struct Cli {
         #[clap(value_name = "PATH")]
         /// The path that will be searched.
-        pub path: String,
+        pub path: Option<String>,
 
         #[clap(value_name = "QUERY", group = "q-input")]
         /// Search query for the tags.
@@ -91,7 +92,26 @@ fn log_error(msg: &str, e: Box<dyn std::error::Error>) {
     );
 }
 
-fn run_explore(path: &str) {}
+fn run_explore(path: &str) {
+    if let Err(e) = enable_raw_mode() {
+        log_error("Failed to enable raw mode:", Box::new(e));
+    }
+    if let Err(e) = stdout().execute(EnterAlternateScreen) {
+        log_error("Failed to enter alternate screen: ", Box::new(e));
+    }
+
+    if let Err(e) = tag::explore::ui() {
+        log_error("Failed to draw explore UI:", e);
+    }
+
+    if let Err(e) = disable_raw_mode() {
+        log_error("Failed to disable raw mode:", Box::new(e));
+    }
+    if let Err(e) = stdout().execute(LeaveAlternateScreen) {
+        log_error("Failed to leave alternate screen:", Box::new(e));
+        std::process::exit(1);
+    }
+}
 
 fn run_topcmd(args: &mut cli::Cli) {
     // detect if output is in a terminal or not
@@ -103,6 +123,17 @@ fn run_topcmd(args: &mut cli::Cli) {
     if args.no_color {
         colored::control::set_override(false);
     }
+
+    if args.path.is_none() {
+        eprintln!(
+            "{} {}",
+            "[ERROR]".red().bold(),
+            "Please provide a path.".red()
+        );
+        std::process::exit(1);
+    }
+
+    let path = args.path.clone().unwrap();
 
     if !args.query_stdin && args.query.is_none() {
         eprintln!(
@@ -125,7 +156,7 @@ fn run_topcmd(args: &mut cli::Cli) {
         query
     };
 
-    let file_index = match get_tags_from_files(args.path.as_str()) {
+    let file_index = match get_tags_from_files(path.as_str()) {
         Ok(index) => index,
         Err(e) => {
             log_error("Failed to build file index:", e);

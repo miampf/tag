@@ -9,3 +9,6 @@ pub mod inspect;
 
 /// system commands on files
 pub mod commands;
+
+/// explore mode ui
+pub mod explore;
